@@ -9,7 +9,7 @@ This framework supports end-to-end IAM testing including:
 * ✅ Verify Identity attributes
 * ✅ Launch Workflows
 * ✅ Launch Tasks (via Workflow)
-* ✅ Birthright Role Validation
+* ✅ Verify Birthright Role assignments
 * ✅ Account Provisioning 
 * ✅ Verify Accounts
 ---
