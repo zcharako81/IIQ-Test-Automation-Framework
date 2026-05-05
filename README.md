@@ -52,7 +52,6 @@ src/test/iiq
 
 ---
 
-
 ## 👉 Instructions
 - Workflow for Task execution "My-WF-TaskLauncher" must be imported into IIQ, before tests can be executed. 
 - Task names can be changed in the config.properties file (e.g. for Identity Refresh or Account Aggregation). Name of the test identity will be passed to the as Task filter to reduce the execution time. 
@@ -109,6 +108,8 @@ Defined in `pom.xml`:
 * Extensible for multiple connectors
 
 ⸻
+https://github.com/zcharako81/IIQ-Test-Automation-Framwork
+https://github.com/zcharako81/IIQ-Test-Automation-Framework
 
 
 
