@@ -34,7 +34,7 @@ src/test/java
 ├── services/            # API service layer (Identity, Workflow)
 ├── testDataFactory/     # Test data builders
 ├── utils/               # Helper utilities (waits, validation)
-├── test/
+├── test/                # <-- here to define your test cases
 │   ├── identity/        # Identity lifecycle tests
 │   ├── connectors/      # Connector-specific tests (e.g., LDAP)
 │   └── base/            # Base test classes
@@ -57,12 +57,15 @@ src/test/iiq
 ## ⚙️ Configuration
 
 ### Global config
+
 `config.properties`
+```
 base.url=http://localhost:8080/identityiq
 username=REPLACE_ME
 password=REPLACE_ME
 task.name1=RefreshIdentitySingle
 task.name2=LdapAccountAggregation
+```
 
 ### Identity test data
 `identity.properties`
