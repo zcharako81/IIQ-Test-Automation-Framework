@@ -1,7 +1,5 @@
 # SailPoint IdentityIQ Test Automation Framework
 
-👤 Author: Zisis Charakopidis (zisis.charakopidis@icloud.com)
-
 A modular and extensible test automation framework for **SailPoint IdentityIQ (IIQ)** using **SCIM APIs**, **TestNG**, and **REST-Assured**.
 It can be executed standalone or integrated to a DevOps pipeline. 
 
@@ -30,6 +28,7 @@ This framework supports end-to-end IAM testing including:
 ---
 
 ## 📁 Project Structure
+```
 src/test/java
 │
 ├── base/                # Core framework classes (API, config, auth)
@@ -49,7 +48,7 @@ src/test/resources
 src/test/iiq
 │
 ├── config/My-WF-TaskLauncher	#Workflow that is called via SCIM for the Task execution   
-
+```
 ---
 
 ## 👉 Instructions
@@ -81,13 +80,13 @@ Run all tests:
 
 ```bash
 mvn clean test
-
+```
 Or via TestNG suite:
+```
 mvn test -DsuiteXmlFile=Testng.xml
+```
 
-
-⸻
-
+---
 ## 📦 Dependencies
 
 Defined in `pom.xml`:
@@ -98,7 +97,6 @@ Defined in `pom.xml`:
 - (Optional) JSON serializer like Jackson (if added later)
 
 ---
-
 🧠 Design Principles
 
 * Separation of concerns (model / service / test)
@@ -106,11 +104,5 @@ Defined in `pom.xml`:
 * SCIM-first approach
 * Reusable utilities
 * Extensible for multiple connectors
-
-⸻
-https://github.com/zcharako81/IIQ-Test-Automation-Framwork
-https://github.com/zcharako81/IIQ-Test-Automation-Framework
-
-
-
-
+---
+👤 Author: Zisis Charakopidis (zisis.charakopidis@icloud.com)
