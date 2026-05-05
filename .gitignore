@@ -1,0 +1,6 @@
+target/
+*.log
+*.class
+.settings/
+.project
+test-output

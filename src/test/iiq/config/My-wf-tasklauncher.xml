@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow explicitTransitions="true" name="My-WF-TaskLauncher" significantModified="1777792421970" type="">
+          
+    
+    <Variable name="taskResultId" output="true"/>
+          
+    
+    <Variable input="true" name="taskName"/>
+          
+    
+    <Variable input="true" name="identityName"/>
+          
+    
+    <Variable initializer="false" name="trace"/>
+          
+    
+    <Description>Launch a task using an input task name.  Outputs the task ID.</Description>
+          
+    
+    <Step icon="Start" name="Start" posX="28" posY="10">
+                    
+        
+        <Transition to="Launch task"/>
+                  
+    
+    </Step>
+          
+    
+    <Step icon="Default" name="Launch task" posX="98" posY="10" resultVariable="taskResultId">
+                    
+        
+        <Script>
+                              
+            
+            <Source><![CDATA[
+
+import sailpoint.api.TaskManager;
+import sailpoint.object.TaskResult;
+import java.util.HashMap;
+import java.util.Map;
+
+// Pass the identity name into the filter argument
+Map args = new HashMap();
+args.put("filter", "name == \"" + identityName + "\"");
+      
+TaskManager tm = new TaskManager(context);
+TaskResult taskResult = tm.runSync(taskName, args);
+
+return taskResult.getId();
+      ]]></Source>
+                            
+        
+        </Script>
+                    
+        
+        <Transition to="Stop"/>
+                  
+    
+    </Step>
+          
+    
+    <Step icon="Stop" name="Stop" posX="208" posY="10"/>
+        
+
+</Workflow>
