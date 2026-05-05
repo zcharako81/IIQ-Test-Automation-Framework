@@ -11,8 +11,7 @@ This framework supports end-to-end IAM testing including:
 * ✅ Launch Tasks (via Workflow)
 * ✅ Birthright Role Validation
 * ✅ Account Provisioning 
-* ✅ Account Verification
-
+* ✅ Verify Accounts
 ---
 
 ## 🧱 Tech Stack
@@ -24,7 +23,6 @@ This framework supports end-to-end IAM testing including:
 | Test Framework  | TestNG |
 | API Testing     | REST-Assured |
 | Configuration   | Properties files |
-
 ---
 
 ## 📁 Project Structure
@@ -42,9 +40,9 @@ src/test/java
 │   └── base/            # Base test classes
 │
 src/test/resources
-├── config.properties
-├── identity.properties
-├── account.properties
+├── config.properties    # general test config
+├── identity.properties  # identity attributes for creation and verification
+├── account.properties   # account attributes of various applicatons can be added. 
 src/test/iiq
 │
 ├── config/My-WF-TaskLauncher	#Workflow that is called via SCIM for the Task execution   
