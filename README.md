@@ -6,11 +6,11 @@ It can be executed standalone or integrated to a DevOps pipeline.
 This framework supports end-to-end IAM testing including:
 
 * ✅ Create Identity / Modify Identity / Delete Identity
-* ✅ Verify Identity attributes
 * ✅ Launch Workflows
 * ✅ Launch Tasks (via Workflow)
-* ✅ Verify Birthright Role assignments
 * ✅ Account Provisioning 
+* ✅ Verify Identity attributes
+* ✅ Verify Birthright Role assignments
 * ✅ Verify Accounts
 ---
 
@@ -50,7 +50,7 @@ src/test/iiq
 ---
 
 ## 👉 Instructions
-- Workflow for Task execution `My-WF-TaskLauncher` must be imported into IIQ, before tests can be executed. 
+- Workflow `My-WF-TaskLauncher` must be imported into IIQ, before tests can be executed. 
 - Task names can be changed in the `config.properties` file (e.g. for Identity Refresh or Account Aggregation). Name of the test identity will be passed to the as Task filter to reduce the execution time. 
 - Change the identity and account attributes in the `identity.properties` and `account.properties` files to your needs.
 - Adjust and execute the predefined test cases in `src/test/test/identityTest.java.`
