@@ -50,9 +50,10 @@ src/test/iiq
 ---
 
 ## 👉 Instructions
-- Workflow for Task execution "My-WF-TaskLauncher" must be imported into IIQ, before tests can be executed. 
-- Task names can be changed in the config.properties file (e.g. for Identity Refresh or Account Aggregation). Name of the test identity will be passed to the as Task filter to reduce the execution time. 
-- Change the identity and account attributes in the identity.properties and account.properties files to your needs. 
+- Workflow for Task execution `My-WF-TaskLauncher` must be imported into IIQ, before tests can be executed. 
+- Task names can be changed in the `config.properties` file (e.g. for Identity Refresh or Account Aggregation). Name of the test identity will be passed to the as Task filter to reduce the execution time. 
+- Change the identity and account attributes in the `identity.properties` and `account.properties` files to your needs.
+- Adjust and execute the predefined test cases in `src/test/test/identityTest.java.`
 
 ## ⚙️ Configuration
 
