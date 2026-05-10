@@ -1,7 +1,7 @@
 # SailPoint IdentityIQ Test Automation Framework
 
 A modular and extensible test automation framework for **SailPoint IdentityIQ (IIQ)** using **SCIM APIs**, **TestNG**, and **REST-Assured**.
-It can be executed standalone or integrated to a DevOps pipeline. 
+It can be executed standalone or integrated into a DevOps pipeline. 
 
 This framework supports end-to-end IAM testing including:
 
@@ -31,7 +31,7 @@ This framework supports end-to-end IAM testing including:
 ```
 src/test/java
 │
-├── base/                # Core framework classes (API, config, auth)
+├── base/                # Core framework classes (API, config, auth, scim schemas)
 ├── model/               # SCIM models (Identity, Workflow, etc.)
 ├── services/            # API service layer (Identity, Workflow)
 ├── factory/             # Test data builders
