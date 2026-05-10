@@ -12,6 +12,7 @@ This framework supports end-to-end IAM testing including:
 * ✅ Verify Identity attributes
 * ✅ Verify Birthright Role assignments (multi-assignement)
 * ✅ Verify provisioned accounts (multi-application)
+* ✅ Multi-value array attributes for SailPoint extension (via `[]` suffix)
 ---
 
 ## 🧱 Tech Stack
@@ -56,7 +57,7 @@ src/test/iiq
 - **Multi-identity mode**: Define identities via the `identities` key in `identity.properties`. Each identity gets its own set of input, expected, role, and account properties. Accounts are defined via `identity.<key>.accounts` (comma-separated for multiple accounts per identity).
 - **managerValue**: Must be replaced with a valid IIQ identity ID (the `id` field of an existing user, e.g. `spadmin`).
 - **{suffix} placeholder**: Appended to `userName`, `email`, and account attributes like `uid` and `cn` to ensure uniqueness per run (resolved from `System.currentTimeMillis()`).
-- **SailPoint extension (generic)**: Any SailPoint SCIM extension attribute can be added via the `sailpoint.` prefix in property keys. Input: `identity.<key>.input.sailpoint.<attrName>=<value>`. Expected: `identity.<key>.expected.sailpoint.<attrName>=<value>`. This dynamically builds the `urn:ietf:params:scim:schemas:sailpoint:1.0:User` map without touching Java code. Known array attributes (`capabilities`, `costcenter`) can be comma-separated and are automatically converted to JSON arrays. Optional attributes can be removed entirely — the framework skips them gracefully.
+- **SailPoint extension (generic)**: Any SailPoint SCIM extension attribute can be added via the `sailpoint.` prefix in property keys. Input: `identity.<key>.input.sailpoint.<attrName>=<value>`. Expected: `identity.<key>.expected.sailpoint.<attrName>=<value>`. This dynamically builds the `urn:ietf:params:scim:schemas:sailpoint:1.0:User` map without touching Java code. For multi-value array attributes, append `[]` to the key name: `identity.<key>.input.sailpoint.capabilities[]=val1,val2,val3` — the value is split by comma and sent as a JSON array. Single-value attributes use no suffix. Optional attributes can be removed entirely — the framework skips them gracefully.
 - **Multiple roles**: Defined as comma-separated values in `identity.<key>.expected.roles`. For example: `identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE`.
 - **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `Testng.xml`).
 
@@ -145,9 +146,9 @@ Attributes in `identity.properties` are split into two groups that map to **diff
 | `.input.<attr>` (no `sailpoint.`) | `urn:ietf:params:scim:schemas:core:2.0:User` + `urn:ietf:params:scim:schemas:extension:enterprise:2.0:User` (manager) | **Compiled** — dedicated fields in the `Identity` POJO (`userName`, `name.givenName`, `name.familyName`, `displayName`, `userType`, `emails`, `active`, `manager`) | `identity.user1.input.firstname=John` |
 | `.input.sailpoint.<attr>` | `urn:ietf:params:scim:schemas:sailpoint:1.0:User` | **Generic** — stored as `Map<String, Object>`; discovered dynamically by property prefix. Adding a new attribute requires **zero Java code changes**. | `identity.user1.input.sailpoint.title=Software Engineer` |
 
-**Why two mechanisms?** Core SCIM 2.0 attributes (`userName`, `name`, `emails`) are well-defined standards that change infrequently — they benefit from compile-time safety with typed POJO fields. SailPoint extension attributes (`title`, `department`, `location`, `capabilities`, `costcenter`, etc.) are IIQ ObjectConfig fields specific to each deployment. The generic `sailpoint.` prefix lets you add any IIQ attribute without touching Java, keeping the framework deployment-agnostic. The same split applies to `.expected.*` / `.expected.sailpoint.*` for verification.
+**Why two mechanisms?** Core SCIM 2.0 attributes (`userName`, `name`, `emails`) are well-defined standards that change infrequently — they benefit from compile-time safety with typed POJO fields. SailPoint extension attributes (`title`, `department`, `location`, `capabilities`, `costcenter`, etc.) are IIQ ObjectConfig fields specific to each deployment. The generic `sailpoint.` prefix lets you add any IIQ attribute without touching Java, keeping the framework deployment-agnostic. The same split applies to `.expected.*` / `.expected.sailpoint.*` for verification. For multi-value array attributes, append `[]` to the property key: `identity.user1.input.sailpoint.capabilities[]=val1,val2,val3`.
 
-**Optionality**: Any `.input.sailpoint.*` or `.expected.sailpoint.*` line can be removed entirely — the framework skips it gracefully during creation and verification.
+**Optionality**: Any `.input.sailpoint.*` or `.expected.sailpoint.*` line can be removed entirely — the framework skips it gracefully during creation and verification. For multi-value array attributes, append `[]` to the key name: `identity.user1.input.sailpoint.capabilities[]=val1,val2,val3` — the value is split by comma and sent as a JSON array. Single-value attributes use no suffix.
 
 ### Account validation flow
 

@@ -136,8 +136,9 @@ public class IdentityTest extends BaseTest {
         String spPrefix = p + "sailpoint.";
         Map<String, String> spExpected = ConfigManager.getByPrefix(spPrefix);
         for (Map.Entry<String, String> entry : spExpected.entrySet()) {
-            String attrName = entry.getKey();
-            boolean isArray = entry.getValue().contains(",");
+            String rawAttrName = entry.getKey();
+            boolean isArray = rawAttrName.endsWith("[]");
+            String attrName = isArray ? rawAttrName.substring(0, rawAttrName.length() - 2) : rawAttrName;
             String jsonPath = isArray ? sp + attrName + "[0]" : sp + attrName;
             String expectedValue = isArray
                     ? entry.getValue().split("\\s*,\\s*")[0]

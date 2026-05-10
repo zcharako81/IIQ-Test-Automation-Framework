@@ -2,12 +2,10 @@ package factory;
 
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 import model.Identity;
 
@@ -22,9 +20,6 @@ public class IdentityDataFactory {
             throw new RuntimeException("Failed to load identity properties", e);
         }
     }
-
-    private static final Set<String> SAILPOINT_ARRAY_ATTRS = new HashSet<>(
-            Arrays.asList("capabilities", "costcenter"));
 
     /**
      * Creates an Identity POJO from .input.* properties for SCIM POST (create).
@@ -102,16 +97,17 @@ public class IdentityDataFactory {
         for (String key : props.stringPropertyNames()) {
             if (key.startsWith(spPrefix)) {
                 if (spMap == null) spMap = new LinkedHashMap<>();
-                String attrName = key.substring(spPrefix.length());
+                String rawAttrName = key.substring(spPrefix.length());
                 String value = props.getProperty(key);
-                if (value != null && !value.isEmpty()) {
-                    if (SAILPOINT_ARRAY_ATTRS.contains(attrName)) {
-                        spMap.put(attrName, Arrays.asList(value.split("\\s*,\\s*")));
-                    } else if (value.contains("{suffix}")) {
-                        spMap.put(attrName, value.replace("{suffix}", suffix));
-                    } else {
-                        spMap.put(attrName, value);
-                    }
+                if (value == null || value.isEmpty()) continue;
+                // Attribute key ending with [] → multi-value array
+                if (rawAttrName.endsWith("[]")) {
+                    String cleanName = rawAttrName.substring(0, rawAttrName.length() - 2);
+                    spMap.put(cleanName, Arrays.asList(value.split("\\s*,\\s*")));
+                } else if (value.contains("{suffix}")) {
+                    spMap.put(rawAttrName, value.replace("{suffix}", suffix));
+                } else {
+                    spMap.put(rawAttrName, value);
                 }
             }
         }
