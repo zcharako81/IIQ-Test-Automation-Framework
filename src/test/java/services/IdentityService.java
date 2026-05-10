@@ -35,6 +35,12 @@ public class IdentityService {
         return ApiClient.get(path);
     }
 
+    public Response deleteAccountByRef(String refUrl) {
+        String baseUrl = ConfigManager.get("base.url");
+        String path = refUrl.substring(refUrl.indexOf(baseUrl) + baseUrl.length());
+        return ApiClient.delete(path);
+    }
+
     public Response deleteUser(String id) {
         return ApiClient.delete(ENDPOINT + "/" + id);
     }

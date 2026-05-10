@@ -225,6 +225,29 @@ public class IdentityTest extends BaseTest {
     }
 
     @Test(dependsOnMethods = "testVerifyAccounts",
+          description = "SCIM: Delete provisioned accounts")
+    public void testDeleteAccounts() {
+        for (IdentityContext ctx : identities.values()) {
+            var response = service.getUserAccounts(ctx.userId);
+            Assert.assertEquals(response.statusCode(), 200,
+                    "Accounts fetch failed for delete on: " + ctx.identityKey);
+            List<Map<String, Object>> accountRefs = response.jsonPath().getList(
+                    "'urn:ietf:params:scim:schemas:sailpoint:1.0:User'.accounts");
+            if (accountRefs == null || accountRefs.isEmpty()) continue;
+            for (Map<String, Object> ref : accountRefs) {
+                String refUrl = (String) ref.get("$ref");
+                Assert.assertNotNull(refUrl,
+                        "Missing $ref in account reference for: " + ctx.identityKey);
+                var deleteResponse = service.deleteAccountByRef(refUrl);
+                Assert.assertTrue(
+                        deleteResponse.statusCode() == 204 || deleteResponse.statusCode() == 200,
+                        "Account delete failed for " + ctx.identityKey + " on ref: " + refUrl
+                                + " — status: " + deleteResponse.statusCode());
+            }
+        }
+    }
+
+    @Test(dependsOnMethods = "testDeleteAccounts",
           description = "SCIM: Delete identities")
     public void testDeleteIdentities() {
         for (IdentityContext ctx : identities.values()) {
