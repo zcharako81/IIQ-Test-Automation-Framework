@@ -88,14 +88,23 @@ public class ConfigManager {
     }
 
     /**
-     * Returns the list of test phases to execute for a given identity key.
-     * If the property is absent or empty, returns null (meaning run all phases).
-     * Example: identity.user1.tests=create,refresh,verifyCreate,verifyRoles,delete
+     * Default ordered lifecycle phases (backward compatible with old dependsOnMethods chain).
+     */
+    private static final List<String> DEFAULT_PHASES = List.of(
+            "create", "refresh", "aggregation", "verifyCreate", "verifyRoles",
+            "verifyAccounts", "modify", "verifyModify", "deleteAccounts", "delete"
+    );
+
+    /**
+     * Returns the ordered list of test phases to execute for a given identity key.
+     * If the property is absent or empty, returns the default lifecycle order.
+     * Duplicates are preserved, allowing phases to repeat.
+     * Example: identity.user1.tests=create,refresh,verifyCreate,modify,verifyModify,verifyAccounts,delete
      */
     public static List<String> getIdentityTests(String identityKey) {
         String value = getOptional("identity." + identityKey + ".tests");
         if (value == null || value.trim().isEmpty()) {
-            return null;
+            return DEFAULT_PHASES;
         }
         return Arrays.stream(value.split(","))
                 .map(String::trim)

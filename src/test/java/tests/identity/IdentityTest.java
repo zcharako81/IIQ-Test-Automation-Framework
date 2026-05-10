@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -35,8 +34,9 @@ public class IdentityTest extends BaseTest {
         String identityKey;
     }
 
-    @Test(description = "SCIM: Create identities")
-    public void testCreateIdentities() {
+    @Test(description = "SCIM: Per-identity lifecycle driven by identity.properties .tests list")
+    public void testLifecycle() {
+        // ── Phase 0: Create all identities (mandatory) ──────────────────────
         List<String> keys = ConfigManager.getIdentityKeys();
         Assert.assertFalse(keys.isEmpty(), "No identity keys configured via 'identities' property");
         for (String key : keys) {
@@ -51,74 +51,232 @@ public class IdentityTest extends BaseTest {
             ctx.identityKey = key;
             identities.put(key, ctx);
         }
-    }
 
-    @Test(dependsOnMethods = "testCreateIdentities",
-          description = "SCIM: Launch refresh workflow for identities")
-    public void testLaunchWorkflowRefreshIdentities() {
-        String taskName = ConfigManager.get("task.refresh");
+        // ── Per-identity ordered lifecycle ──────────────────────────────────
         for (IdentityContext ctx : identities.values()) {
-            if (!shouldRun(ctx.identityKey, "refresh")) continue;
-            var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
-            var response = workflowService.launchWorkflow(workflow);
-            Assert.assertEquals(response.statusCode(), 201, "Workflow launch failed for: " + ctx.identityKey);
-            String workflowId = response.jsonPath().getString("id");
-            Assert.assertNotNull(workflowId);
-            TestUtils.waitForWorkflowCompletion(workflowService, workflowId, TestUtils.waitTimeout(), TestUtils.waitPoll());
-            var result = workflowService.getWorkflow(workflowId);
-            Assert.assertEquals(
-                    result.jsonPath().getString("completionStatus"),
-                    "Success",
-                    "Refresh workflow failed for: " + ctx.identityKey
-            );
-        }
-    }
-
-    @Test(dependsOnMethods = "testLaunchWorkflowRefreshIdentities",
-          description = "SCIM: Launch aggregation workflows for all applications")
-    public void testLaunchWorkflowAggregations() {
-        Set<String> appKeys = ConfigManager.getAllAccountTypes();
-        for (String appKey : appKeys) {
-            String taskName = ConfigManager.getAggregationTaskName(appKey);
-            for (IdentityContext ctx : identities.values()) {
-                if (!shouldRun(ctx.identityKey, "aggregation")) continue;
-                // Only launch if this identity has an account for this app
-                List<String> identityApps = ConfigManager.getAccountTypes(ctx.identityKey);
-                if (!identityApps.contains(appKey)) continue;
-                var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
-                var response = workflowService.launchWorkflow(workflow);
-                Assert.assertEquals(response.statusCode(), 201,
-                        "Aggregation launch failed for app: " + appKey + " identity: " + ctx.identityKey);
-                String workflowId = response.jsonPath().getString("id");
-                Assert.assertNotNull(workflowId);
-                TestUtils.waitForWorkflowCompletion(workflowService, workflowId,
-                        TestUtils.waitTimeout(), TestUtils.aggregationPoll());
-                var result = workflowService.getWorkflow(workflowId);
-                Assert.assertEquals(
-                        result.jsonPath().getString("completionStatus"),
-                        "Success",
-                        "Aggregation workflow failed for app: " + appKey + " identity: " + ctx.identityKey
-                );
+            List<String> phases = ConfigManager.getIdentityTests(ctx.identityKey);
+            for (String phase : phases) {
+                switch (phase) {
+                    case "create":
+                        break; // already done above
+                    case "refresh":
+                        doRefresh(ctx);
+                        break;
+                    case "aggregation":
+                        doLaunchAggregations(ctx);
+                        break;
+                    case "verifyCreate":
+                        doVerifyIdentity(ctx);
+                        break;
+                    case "verifyRoles":
+                        doVerifyRoles(ctx);
+                        break;
+                    case "verifyAccounts":
+                        doVerifyAccounts(ctx);
+                        break;
+                    case "modify":
+                        doModifyIdentity(ctx);
+                        break;
+                    case "verifyModify":
+                        doVerifyModifiedIdentity(ctx);
+                        break;
+                    case "deleteAccounts":
+                        doDeleteAccounts(ctx);
+                        break;
+                    case "delete":
+                        doDeleteIdentity(ctx);
+                        break;
+                    default:
+                        throw new IllegalArgumentException(
+                                "Unknown phase: " + phase + " for identity: " + ctx.identityKey);
+                }
             }
         }
     }
 
-    @Test(dependsOnMethods = "testLaunchWorkflowAggregations",
-          description = "SCIM: Verify identities")
-    public void testVerifyIdentities() {
-        for (IdentityContext ctx : identities.values()) {
-            if (!shouldRun(ctx.identityKey, "verifyCreate")) continue;
-            TestUtils.waitForCondition(
-                    () -> service.getUser(ctx.userId).statusCode() == 200,
-                    TestUtils.waitTimeout(), TestUtils.waitPoll()
+    // ── Phase methods (single IdentityContext) ──────────────────────────────
+
+    private void doRefresh(IdentityContext ctx) {
+        String taskName = ConfigManager.get("task.refresh");
+        var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
+        var response = workflowService.launchWorkflow(workflow);
+        Assert.assertEquals(response.statusCode(), 201, "Workflow launch failed for: " + ctx.identityKey);
+        String workflowId = response.jsonPath().getString("id");
+        Assert.assertNotNull(workflowId);
+        TestUtils.waitForWorkflowCompletion(workflowService, workflowId,
+                TestUtils.waitTimeout(), TestUtils.waitPoll());
+        var result = workflowService.getWorkflow(workflowId);
+        Assert.assertEquals(
+                result.jsonPath().getString("completionStatus"),
+                "Success",
+                "Refresh workflow failed for: " + ctx.identityKey
+        );
+    }
+
+    private void doLaunchAggregations(IdentityContext ctx) {
+        List<String> identityApps = ConfigManager.getAccountTypes(ctx.identityKey);
+        for (String appKey : identityApps) {
+            String taskName = ConfigManager.getAggregationTaskName(appKey);
+            var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
+            var response = workflowService.launchWorkflow(workflow);
+            Assert.assertEquals(response.statusCode(), 201,
+                    "Aggregation launch failed for app: " + appKey
+                            + " identity: " + ctx.identityKey);
+            String workflowId = response.jsonPath().getString("id");
+            Assert.assertNotNull(workflowId);
+            TestUtils.waitForWorkflowCompletion(workflowService, workflowId,
+                    TestUtils.waitTimeout(), TestUtils.aggregationPoll());
+            var result = workflowService.getWorkflow(workflowId);
+            Assert.assertEquals(
+                    result.jsonPath().getString("completionStatus"),
+                    "Success",
+                    "Aggregation workflow failed for app: " + appKey
+                            + " identity: " + ctx.identityKey
             );
-            String expectedPrefix = "identity." + ctx.identityKey + ".expected.";
-            Response response = service.getUser(ctx.userId);
-            Assert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
-            Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
-            verifyIdentity(response, ctx.identityKey, expectedPrefix);
         }
     }
+
+    private void doVerifyIdentity(IdentityContext ctx) {
+        TestUtils.waitForCondition(
+                () -> service.getUser(ctx.userId).statusCode() == 200,
+                TestUtils.waitTimeout(), TestUtils.waitPoll()
+        );
+        String expectedPrefix = "identity." + ctx.identityKey + ".expected.";
+        Response response = service.getUser(ctx.userId);
+        Assert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
+        Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
+        verifyIdentity(response, ctx.identityKey, expectedPrefix);
+    }
+
+    private void doVerifyRoles(IdentityContext ctx) {
+        List<String> expectedRoles = ConfigManager.getIdentityExpectedRoles(ctx.identityKey);
+        Assert.assertNotNull(expectedRoles, "No expected roles defined for: " + ctx.identityKey);
+        TestUtils.waitForCondition(() -> {
+            var resp = service.getUserWithRoles(ctx.userId);
+            if (resp.statusCode() != 200) return false;
+            List<String> actualRoles = resp.jsonPath().getList(
+                    ScimSchemas.JSONPATH_SAILPOINT + "roles.display");
+            return actualRoles != null && actualRoles.containsAll(expectedRoles);
+        }, TestUtils.waitTimeout(), TestUtils.waitPoll());
+        var response = service.getUserWithRoles(ctx.userId);
+        Assert.assertEquals(response.statusCode(), 200);
+        List<String> actualRoles = response.jsonPath().getList(
+                ScimSchemas.JSONPATH_SAILPOINT + "roles.display");
+        Assert.assertNotNull(actualRoles, "Roles must not be null for: " + ctx.identityKey);
+        Assert.assertTrue(
+                actualRoles.containsAll(expectedRoles),
+                "Missing expected birthright roles for: " + ctx.identityKey
+                        + ". Expected: " + expectedRoles + " but found: " + actualRoles
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    private void doVerifyAccounts(IdentityContext ctx) {
+        var response = service.getUserAccounts(ctx.userId);
+        Assert.assertEquals(response.statusCode(), 200, "Accounts fetch failed for: " + ctx.identityKey);
+        List<Map<String, Object>> accountRefs = response.jsonPath().getList(
+                ScimSchemas.JSONPATH_SAILPOINT + "accounts");
+        Assert.assertNotNull(accountRefs, "Account list is null for: " + ctx.identityKey);
+        List<Map<String, Object>> accounts = new ArrayList<>();
+        for (Map<String, Object> ref : accountRefs) {
+            String refUrl = (String) ref.get("$ref");
+            Assert.assertNotNull(refUrl, "Missing $ref in account reference for: " + ctx.identityKey);
+            Response acctResponse = service.getAccountByRef(refUrl);
+            Assert.assertEquals(acctResponse.statusCode(), 200,
+                    "Failed to fetch full account details from: " + refUrl);
+            accounts.add(acctResponse.jsonPath().getMap(""));
+        }
+        for (String type : ConfigManager.getAccountTypes(ctx.identityKey)) {
+            String expectedApp = ConfigManager.getAccountApplication(ctx.identityKey, type);
+            Map<String, Object> account = accounts.stream()
+                    .filter(acc -> {
+                        Map<String, Object> app =
+                                (Map<String, Object>) acc.get("application");
+                        String appName = app != null
+                                ? (String) app.get("displayName")
+                                : null;
+                        return expectedApp.equals(appName);
+                    })
+                    .findFirst()
+                    .orElse(null);
+            boolean shouldExist = Boolean.parseBoolean(
+                    ConfigManager.getAccountExists(ctx.identityKey, type));
+            if (shouldExist) {
+                Assert.assertNotNull(account,
+                        "Account missing for type: " + type + " on identity: " + ctx.identityKey);
+                String schemaKey = ScimSchemas.SCHEMA_SAILPOINT_APP_ACCOUNT_PREFIX
+                        + expectedApp + ":account";
+                Map<String, Object> acctAttrs = (Map<String, Object>) account.get(schemaKey);
+                Assert.assertNotNull(acctAttrs, "No schema attributes found for " + type
+                        + " on identity: " + ctx.identityKey);
+                Map<String, String> expectedAttrs =
+                        ConfigManager.getAccountExpectedAttributes(ctx.identityKey, type);
+                for (var entry : expectedAttrs.entrySet()) {
+                    Object actual = acctAttrs.get(entry.getKey());
+                    String expected = entry.getValue().replace("{suffix}", suffix);
+                    Assert.assertEquals(
+                            String.valueOf(actual),
+                            expected,
+                            "Mismatch in " + type + " for attribute: " + entry.getKey()
+                                    + " on identity: " + ctx.identityKey);
+                }
+            } else {
+                Assert.assertNull(account,
+                        "Account should NOT exist for type: " + type
+                                + " on identity: " + ctx.identityKey);
+            }
+        }
+    }
+
+    private void doModifyIdentity(IdentityContext ctx) {
+        Identity identity = IdentityDataFactory.createIdentityForModify(suffix, ctx.identityKey);
+        identity.id = ctx.userId;
+        var response = service.putUser(ctx.userId, identity);
+        Assert.assertTrue(
+                response.statusCode() == 200 || response.statusCode() == 204,
+                "PUT failed for " + ctx.identityKey + ": " + response.statusCode());
+    }
+
+    private void doVerifyModifiedIdentity(IdentityContext ctx) {
+        TestUtils.waitForCondition(
+                () -> service.getUser(ctx.userId).statusCode() == 200,
+                TestUtils.waitTimeout(), TestUtils.waitPoll()
+        );
+        String expectedPrefix = "identity." + ctx.identityKey + ".expectedAfterModify.";
+        Response response = service.getUser(ctx.userId);
+        Assert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
+        Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
+        verifyIdentity(response, ctx.identityKey, expectedPrefix);
+    }
+
+    private void doDeleteAccounts(IdentityContext ctx) {
+        var response = service.getUserAccounts(ctx.userId);
+        Assert.assertEquals(response.statusCode(), 200,
+                "Accounts fetch failed for delete on: " + ctx.identityKey);
+        List<Map<String, Object>> accountRefs = response.jsonPath().getList(
+                ScimSchemas.JSONPATH_SAILPOINT + "accounts");
+        if (accountRefs == null || accountRefs.isEmpty()) return;
+        for (Map<String, Object> ref : accountRefs) {
+            String refUrl = (String) ref.get("$ref");
+            Assert.assertNotNull(refUrl,
+                    "Missing $ref in account reference for: " + ctx.identityKey);
+            var deleteResponse = service.deleteAccountByRef(refUrl);
+            Assert.assertTrue(
+                    deleteResponse.statusCode() == 204 || deleteResponse.statusCode() == 200,
+                    "Account delete failed for " + ctx.identityKey + " on ref: " + refUrl
+                            + " \u2014 status: " + deleteResponse.statusCode());
+        }
+    }
+
+    private void doDeleteIdentity(IdentityContext ctx) {
+        var response = service.deleteUser(ctx.userId);
+        Assert.assertTrue(
+                response.statusCode() == 204 || response.statusCode() == 200,
+                "Unexpected delete status for " + ctx.identityKey + ": " + response.statusCode()
+        );
+    }
+
+    // ── Shared helpers ─────────────────────────────────────────────────────
 
     /**
      * Verifies identity attributes from a SCIM GET response against properties
@@ -156,174 +314,6 @@ public class IdentityTest extends BaseTest {
             String actual = response.jsonPath().getString(jsonPath);
             Assert.assertEquals(actual, expectedValue.replace("{suffix}", suffix),
                     "Mismatch for sailpoint." + attrName + " on: " + identityKey);
-        }
-    }
-
-    /**
-     * Returns true if the given test phase should execute for this identity.
-     * If no .tests property is configured, all phases run (backward compatible).
-     * The 'create' phase always returns true (mandatory).
-     */
-    private boolean shouldRun(String identityKey, String phase) {
-        if ("create".equals(phase)) return true;
-        List<String> tests = ConfigManager.getIdentityTests(identityKey);
-        return tests == null || tests.contains(phase);
-    }
-
-    @Test(dependsOnMethods = "testVerifyIdentities",
-          description = "SCIM: Verify birthright role assignment")
-    public void testVerifyBirthrightRoleAssignment() {
-        for (IdentityContext ctx : identities.values()) {
-            if (!shouldRun(ctx.identityKey, "verifyRoles")) continue;
-            List<String> expectedRoles = ConfigManager.getIdentityExpectedRoles(ctx.identityKey);
-            Assert.assertNotNull(expectedRoles, "No expected roles defined for: " + ctx.identityKey);
-            TestUtils.waitForCondition(() -> {
-                var response = service.getUserWithRoles(ctx.userId);
-                if (response.statusCode() != 200) return false;
-                List<String> actualRoles = response.jsonPath().getList(
-                        ScimSchemas.JSONPATH_SAILPOINT + "roles.display");
-                return actualRoles != null && actualRoles.containsAll(expectedRoles);
-            }, TestUtils.waitTimeout(), TestUtils.waitPoll());
-            var response = service.getUserWithRoles(ctx.userId);
-            Assert.assertEquals(response.statusCode(), 200);
-            List<String> actualRoles = response.jsonPath().getList(
-                    ScimSchemas.JSONPATH_SAILPOINT + "roles.display");
-            Assert.assertNotNull(actualRoles, "Roles must not be null for: " + ctx.identityKey);
-            Assert.assertTrue(
-                    actualRoles.containsAll(expectedRoles),
-                    "Missing expected birthright roles for: " + ctx.identityKey +
-                    ". Expected: " + expectedRoles + " but found: " + actualRoles
-            );
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test(dependsOnMethods = "testVerifyBirthrightRoleAssignment",
-          description = "SCIM: Verify provisioned accounts")
-    public void testVerifyAccounts() {
-        for (IdentityContext ctx : identities.values()) {
-            if (!shouldRun(ctx.identityKey, "verifyAccounts")) continue;
-            var response = service.getUserAccounts(ctx.userId);
-            Assert.assertEquals(response.statusCode(), 200, "Accounts fetch failed for: " + ctx.identityKey);
-            // Extract account references from the User response (displayName, value, $ref)
-            List<Map<String, Object>> accountRefs = response.jsonPath().getList(
-                    ScimSchemas.JSONPATH_SAILPOINT + "accounts");
-            Assert.assertNotNull(accountRefs, "Account list is null for: " + ctx.identityKey);
-            // Resolve each account $ref to full Account resource (includes applicationName)
-            List<Map<String, Object>> accounts = new ArrayList<>();
-            for (Map<String, Object> ref : accountRefs) {
-                String refUrl = (String) ref.get("$ref");
-                Assert.assertNotNull(refUrl, "Missing $ref in account reference for: " + ctx.identityKey);
-                Response acctResponse = service.getAccountByRef(refUrl);
-                Assert.assertEquals(acctResponse.statusCode(), 200,
-                        "Failed to fetch full account details from: " + refUrl);
-                accounts.add(acctResponse.jsonPath().getMap(""));
-            }
-            for (String type : ConfigManager.getAccountTypes(ctx.identityKey)) {
-                String expectedApp = ConfigManager.getAccountApplication(ctx.identityKey, type);
-                Map<String, Object> account = accounts.stream()
-                        .filter(acc -> {
-                            Map<String, Object> app =
-                                    (Map<String, Object>) acc.get("application");
-                            String appName = app != null
-                                    ? (String) app.get("displayName")
-                                    : null;
-                            return expectedApp.equals(appName);
-                        })
-                        .findFirst()
-                        .orElse(null);
-                boolean shouldExist = Boolean.parseBoolean(
-                        ConfigManager.getAccountExists(ctx.identityKey, type));
-                if (shouldExist) {
-                    Assert.assertNotNull(account, "Account missing for type: " + type + " on identity: " + ctx.identityKey);
-                    // Attributes are nested under a schema-specific key
-                    String schemaKey = ScimSchemas.SCHEMA_SAILPOINT_APP_ACCOUNT_PREFIX
-                            + expectedApp + ":account";
-                    Map<String, Object> acctAttrs = (Map<String, Object>) account.get(schemaKey);
-                    Assert.assertNotNull(acctAttrs, "No schema attributes found for " + type
-                            + " on identity: " + ctx.identityKey);
-                    Map<String, String> expectedAttrs = ConfigManager.getAccountExpectedAttributes(ctx.identityKey, type);
-                    for (var entry : expectedAttrs.entrySet()) {
-                        Object actual = acctAttrs.get(entry.getKey());
-                        String expected = entry.getValue().replace("{suffix}", suffix);
-                        Assert.assertEquals(
-                                String.valueOf(actual),
-                                expected,
-                                "Mismatch in " + type + " for attribute: " + entry.getKey() +
-                                " on identity: " + ctx.identityKey);
-                    }
-                } else {
-                    Assert.assertNull(account, "Account should NOT exist for type: " + type + " on identity: " + ctx.identityKey);
-                }
-            }
-        }
-    }
-
-    @Test(dependsOnMethods = "testVerifyAccounts",
-          description = "SCIM: Modify identities (PUT)")
-    public void testModifyIdentities() {
-        for (IdentityContext ctx : identities.values()) {
-            if (!shouldRun(ctx.identityKey, "modify")) continue;
-            Identity identity = IdentityDataFactory.createIdentityForModify(suffix, ctx.identityKey);
-            identity.id = ctx.userId;
-            var response = service.putUser(ctx.userId, identity);
-            Assert.assertTrue(
-                    response.statusCode() == 200 || response.statusCode() == 204,
-                    "PUT failed for " + ctx.identityKey + ": " + response.statusCode());
-        }
-    }
-
-    @Test(dependsOnMethods = "testModifyIdentities",
-          description = "SCIM: Verify modified identities")
-    public void testVerifyModifiedIdentities() {
-        for (IdentityContext ctx : identities.values()) {
-            if (!shouldRun(ctx.identityKey, "verifyModify")) continue;
-            TestUtils.waitForCondition(
-                    () -> service.getUser(ctx.userId).statusCode() == 200,
-                    TestUtils.waitTimeout(), TestUtils.waitPoll()
-            );
-            String expectedPrefix = "identity." + ctx.identityKey + ".expectedAfterModify.";
-            Response response = service.getUser(ctx.userId);
-            Assert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
-            Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
-            verifyIdentity(response, ctx.identityKey, expectedPrefix);
-        }
-    }
-
-    @Test(dependsOnMethods = "testVerifyModifiedIdentities",
-          description = "SCIM: Delete provisioned accounts")
-    public void testDeleteAccounts() {
-        for (IdentityContext ctx : identities.values()) {
-            if (!shouldRun(ctx.identityKey, "deleteAccounts")) continue;
-            var response = service.getUserAccounts(ctx.userId);
-            Assert.assertEquals(response.statusCode(), 200,
-                    "Accounts fetch failed for delete on: " + ctx.identityKey);
-            List<Map<String, Object>> accountRefs = response.jsonPath().getList(
-                    ScimSchemas.JSONPATH_SAILPOINT + "accounts");
-            if (accountRefs == null || accountRefs.isEmpty()) continue;
-            for (Map<String, Object> ref : accountRefs) {
-                String refUrl = (String) ref.get("$ref");
-                Assert.assertNotNull(refUrl,
-                        "Missing $ref in account reference for: " + ctx.identityKey);
-                var deleteResponse = service.deleteAccountByRef(refUrl);
-                Assert.assertTrue(
-                        deleteResponse.statusCode() == 204 || deleteResponse.statusCode() == 200,
-                        "Account delete failed for " + ctx.identityKey + " on ref: " + refUrl
-                                + " — status: " + deleteResponse.statusCode());
-            }
-        }
-    }
-
-    @Test(dependsOnMethods = "testDeleteAccounts",
-          description = "SCIM: Delete identities")
-    public void testDeleteIdentities() {
-        for (IdentityContext ctx : identities.values()) {
-            if (!shouldRun(ctx.identityKey, "delete")) continue;
-            var response = service.deleteUser(ctx.userId);
-            Assert.assertTrue(
-                    response.statusCode() == 204 || response.statusCode() == 200,
-                    "Unexpected delete status for " + ctx.identityKey + ": " + response.statusCode()
-            );
         }
     }
 }

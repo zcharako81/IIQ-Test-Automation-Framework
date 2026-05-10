@@ -169,11 +169,11 @@ Attributes in `identity.properties` are split into two groups that map to **diff
 After creation and account verification, the framework modifies each identity via **SCIM PUT** (`PUT /scim/v2/Users/{id}`) and then re-verifies:
 
 ```
-testVerifyAccounts → testModifyIdentities → testVerifyModifiedIdentities → testDeleteAccounts
+verifyAccounts → modify → verifyModify → deleteAccounts
 ```
 
 - **`.modify.*`** — Partial attribute set documented in `identity.properties`. Not read by Java directly (the PUT uses `.expectedAfterModify.*` as the full representation), but kept for documentation of what changed.
-- **`.expectedAfterModify.*`** — Full expected state after modification. Read by `IdentityDataFactory.createIdentityForModify()` and verified by `testVerifyModifiedIdentities()`.
+- **`.expectedAfterModify.*`** — Full expected state after modification. Read by `IdentityDataFactory.createIdentityForModify()` and verified by `doVerifyModifiedIdentity()`.
 
 The same schema split applies: `.expectedAfterModify.*` for core/enterprise, `.expectedAfterModify.sailpoint.*` for the SailPoint extension. The `{suffix}` placeholder is supported the same way as `.expected.*`.
 
@@ -229,17 +229,13 @@ Or via TestNG suite:
 mvn test -DsuiteXmlFile=Testng.xml
 ```
 
-Tests are strictly sequential via `dependsOnMethods`:
-1. `testCreateIdentities`
-2. `testLaunchWorkflowRefreshIdentities`
-3. `testLaunchWorkflowAggregations`
-4. `testVerifyIdentities`
-5. `testVerifyBirthrightRoleAssignment`
-6. `testVerifyAccounts`
-7. `testModifyIdentities`
-8. `testVerifyModifiedIdentities`
-9. `testDeleteAccounts`
-10. `testDeleteIdentities`
+The single `@Test` method `testLifecycle()` runs a per-identity ordered phase list read from `identity.<key>.tests` in `identity.properties`. Phases execute in the order listed; duplicates allowed for repeatable scenarios. Default lifecycle order:
+
+```
+create → refresh → aggregation → verifyCreate → verifyRoles → verifyAccounts → modify → verifyModify → deleteAccounts → delete
+```
+
+Each identity's phase list runs independently (per-identity mode). If `.tests` property is absent, the full default lifecycle above runs.
 
 ---
 
