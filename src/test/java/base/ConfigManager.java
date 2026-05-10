@@ -80,6 +80,22 @@ public class ConfigManager {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Returns the list of test phases to execute for a given identity key.
+     * If the property is absent or empty, returns null (meaning run all phases).
+     * Example: identity.user1.tests=create,refresh,verifyCreate,verifyRoles,delete
+     */
+    public static List<String> getIdentityTests(String identityKey) {
+        String value = getOptional("identity." + identityKey + ".tests");
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        return Arrays.stream(value.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+    }
+
     public static List<String> getIdentityExpectedRoles(String identityKey) {
         return getList("identity." + identityKey + ".expected.roles");
     }

@@ -56,6 +56,7 @@ public class IdentityTest extends BaseTest {
     public void testLaunchWorkflowRefreshIdentities() {
         String taskName = ConfigManager.get("task.name1");
         for (IdentityContext ctx : identities.values()) {
+            if (!shouldRun(ctx.identityKey, "refresh")) continue;
             var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
             var response = workflowService.launchWorkflow(workflow);
             Assert.assertEquals(response.statusCode(), 201, "Workflow launch failed for: " + ctx.identityKey);
@@ -76,6 +77,7 @@ public class IdentityTest extends BaseTest {
     public void testLaunchWorkflowLdapAggregation() {
         String taskName = ConfigManager.get("task.name2");
         for (IdentityContext ctx : identities.values()) {
+            if (!shouldRun(ctx.identityKey, "aggregation")) continue;
             var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
             var response = workflowService.launchWorkflow(workflow);
             Assert.assertEquals(response.statusCode(), 201, "Aggregation launch failed for: " + ctx.identityKey);
@@ -95,6 +97,7 @@ public class IdentityTest extends BaseTest {
           description = "SCIM: Verify identities")
     public void testVerifyIdentities() {
         for (IdentityContext ctx : identities.values()) {
+            if (!shouldRun(ctx.identityKey, "verifyCreate")) continue;
             TestUtils.waitForCondition(
                     () -> service.getUser(ctx.userId).statusCode() == 200,
                     30, 1000
@@ -145,10 +148,22 @@ public class IdentityTest extends BaseTest {
         }
     }
 
+    /**
+     * Returns true if the given test phase should execute for this identity.
+     * If no .tests property is configured, all phases run (backward compatible).
+     * The 'create' phase always returns true (mandatory).
+     */
+    private boolean shouldRun(String identityKey, String phase) {
+        if ("create".equals(phase)) return true;
+        List<String> tests = ConfigManager.getIdentityTests(identityKey);
+        return tests == null || tests.contains(phase);
+    }
+
     @Test(dependsOnMethods = "testVerifyIdentities",
           description = "SCIM: Verify birthright role assignment")
     public void testVerifyBirthrightRoleAssignment() {
         for (IdentityContext ctx : identities.values()) {
+            if (!shouldRun(ctx.identityKey, "verifyRoles")) continue;
             List<String> expectedRoles = ConfigManager.getIdentityExpectedRoles(ctx.identityKey);
             Assert.assertNotNull(expectedRoles, "No expected roles defined for: " + ctx.identityKey);
             TestUtils.waitForCondition(() -> {
@@ -176,6 +191,7 @@ public class IdentityTest extends BaseTest {
           description = "SCIM: Verify provisioned accounts")
     public void testVerifyAccounts() {
         for (IdentityContext ctx : identities.values()) {
+            if (!shouldRun(ctx.identityKey, "verifyAccounts")) continue;
             var response = service.getUserAccounts(ctx.userId);
             response.prettyPrint();
             Assert.assertEquals(response.statusCode(), 200, "Accounts fetch failed for: " + ctx.identityKey);
@@ -237,6 +253,7 @@ public class IdentityTest extends BaseTest {
           description = "SCIM: Modify identities (PUT)")
     public void testModifyIdentities() {
         for (IdentityContext ctx : identities.values()) {
+            if (!shouldRun(ctx.identityKey, "modify")) continue;
             Identity identity = IdentityDataFactory.createIdentityForModify(suffix, ctx.identityKey);
             identity.id = ctx.userId;
             var response = service.putUser(ctx.userId, identity);
@@ -250,6 +267,7 @@ public class IdentityTest extends BaseTest {
           description = "SCIM: Verify modified identities")
     public void testVerifyModifiedIdentities() {
         for (IdentityContext ctx : identities.values()) {
+            if (!shouldRun(ctx.identityKey, "verifyModify")) continue;
             TestUtils.waitForCondition(
                     () -> service.getUser(ctx.userId).statusCode() == 200,
                     30, 1000
@@ -266,6 +284,7 @@ public class IdentityTest extends BaseTest {
           description = "SCIM: Delete provisioned accounts")
     public void testDeleteAccounts() {
         for (IdentityContext ctx : identities.values()) {
+            if (!shouldRun(ctx.identityKey, "deleteAccounts")) continue;
             var response = service.getUserAccounts(ctx.userId);
             Assert.assertEquals(response.statusCode(), 200,
                     "Accounts fetch failed for delete on: " + ctx.identityKey);
@@ -289,6 +308,7 @@ public class IdentityTest extends BaseTest {
           description = "SCIM: Delete identities")
     public void testDeleteIdentities() {
         for (IdentityContext ctx : identities.values()) {
+            if (!shouldRun(ctx.identityKey, "delete")) continue;
             var response = service.deleteUser(ctx.userId);
             Assert.assertTrue(
                     response.statusCode() == 204 || response.statusCode() == 200,
