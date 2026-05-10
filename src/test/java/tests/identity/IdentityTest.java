@@ -100,8 +100,8 @@ public class IdentityTest extends BaseTest {
 
             // SailPoint extension — IIQ-native equivalents
             String sp = "'urn:ietf:params:scim:schemas:sailpoint:1.0:User'.";
-            TestUtils.verifyStringAttr(response, p + "jobtitle", sp + "jobtitle", suffix);
-            TestUtils.verifyStringAttr(response, p + "Department", sp + "Department", suffix);
+            TestUtils.verifyStringAttr(response, p + "title", sp + "title", suffix);
+            TestUtils.verifyStringAttr(response, p + "department", sp + "department", suffix);
             TestUtils.verifyStringAttr(response, p + "location", sp + "location", suffix);
         }
     }

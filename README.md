@@ -107,8 +107,8 @@ identity.user1.input.email=john.doe@acme.com
 identity.user1.input.userType=employee
 identity.user1.input.active=true
 # SailPoint extension (IIQ-native SCIM equivalents)
-identity.user1.input.jobtitle=Software Engineer
-identity.user1.input.Department=Engineering
+identity.user1.input.title=Software Engineer
+identity.user1.input.department=Engineering
 identity.user1.input.location=New York
 
 identity.user1.expected.userName=john.doe.{suffix}
@@ -116,8 +116,8 @@ identity.user1.expected.firstname=John
 identity.user1.expected.lastname=Doe
 identity.user1.expected.email={suffix}.john.doe@acme.com
 identity.user1.expected.userType=employee
-identity.user1.expected.jobtitle=Software Engineer
-identity.user1.expected.Department=Engineering
+identity.user1.expected.title=Software Engineer
+identity.user1.expected.department=Engineering
 identity.user1.expected.location=New York
 # comma-separated for multiple roles
 identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE

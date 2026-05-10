@@ -39,8 +39,8 @@ public class Identity {
     }
 
     public static class SailPointUser {
-        public String jobtitle;
-        public String Department;
+        public String title;
+        public String department;
         public String location;
     }
 }

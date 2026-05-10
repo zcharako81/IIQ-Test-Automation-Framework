@@ -57,8 +57,8 @@ public class IdentityDataFactory {
 
         // SailPoint extension attributes (IIQ-native equivalents)
         Identity.SailPointUser sp = null;
-        sp = setSpIfPresent(sp, props, p + "jobtitle", (e, v) -> e.jobtitle = v);
-        sp = setSpIfPresent(sp, props, p + "Department", (e, v) -> e.Department = v);
+        sp = setSpIfPresent(sp, props, p + "title", (e, v) -> e.title = v);
+        sp = setSpIfPresent(sp, props, p + "department", (e, v) -> e.department = v);
         sp = setSpIfPresent(sp, props, p + "location", (e, v) -> e.location = v);
         if (sp != null) {
             user.sailPointUser = sp;
