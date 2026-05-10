@@ -142,6 +142,8 @@ The `{suffix}` placeholder is automatically replaced at runtime with `System.cur
 3. Match by `application.displayName` against the expected application name
 4. Validate expected attributes against the schema-specific nested map
 
+> **Note:** This framework uses **LDAP** as the target application for account provisioning. The dummy application name configured in the test data is `LDAP-Test`. Both the application name and expected account attributes can be customized per identity in `identity.properties`.
+
 ---
 
 ## 🧪 Test Execution
