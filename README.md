@@ -51,12 +51,12 @@ src/test/iiq
 ## 👉 Instructions
 
 - **Prerequisite**: Workflow `My-WF-TaskLauncher` must be imported into IIQ before test execution.
-- Task names can be changed in `config.properties` (e.g. for Identity Refresh or Account Aggregation). The identity name is passed as a task filter to reduce execution time.
+- **Task names**: Can be changed in `config.properties` (e.g. for Identity Refresh or Account Aggregation). The identity name is passed as a task filter to reduce execution time.
 - **Multi-identity mode**: Define identities via the `identities` key in `identity.properties`. Each identity gets its own set of input, expected, role, and account properties.
-- **managerValue must be replaced**: Both `identity.<key>.input.managerValue` and `identity.<key>.expected.managerValue` must be set to a valid IIQ identity ID (the `id` field of an existing user, e.g. `spadmin`). Find the correct ID by querying `GET /scim/v2/Users?filter=userName eq "spadmin"` on your IIQ server and copying the `id` value. The same applies to `managerDisplayName` (set to the userName of the manager).
-- A `{suffix}` placeholder (resolved to a unique timestamp per run) is appended to `userName`, `email`, and account attributes like `uid` and `cn` to ensure uniqueness.
-- **Multiple roles**: Expected birthright roles are defined as comma-separated values in `identity.<key>.expected.roles`. For example: `identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE`.
-- Test class: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `Testng.xml`).
+- **managerValue**: Must be replaced with a valid IIQ identity ID (the `id` field of an existing user, e.g. `spadmin`). Find the correct ID by querying `GET /scim/v2/Users?filter=userName eq "spadmin"` on your IIQ server and copying the `id` value. The same applies to `managerDisplayName` (set to the userName of the manager).
+- **{suffix} placeholder**: Appended to `userName`, `email`, and account attributes like `uid` and `cn` to ensure uniqueness per run (resolved from `System.currentTimeMillis()`).
+- **Multiple roles**: Defined as comma-separated values in `identity.<key>.expected.roles`. For example: `identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE`.
+- **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `Testng.xml`).
 
 ## ⚙️ Configuration
 
