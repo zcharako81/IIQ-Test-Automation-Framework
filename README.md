@@ -7,12 +7,12 @@ This framework supports end-to-end IAM testing including:
 
 * ✅ Create identities / Modify identities / Delete identities
 * ✅ Multi-identity lifecycle — test multiple identities in one run
+* ✅ Multi-value attributes (via `[]` suffix)
 * ✅ Launch Workflows (via SCIM)
 * ✅ Launch Tasks (via Workflow)
 * ✅ Verify Identity attributes
 * ✅ Verify Birthright Role assignments (multi-assignement)
 * ✅ Verify provisioned accounts (multi-application)
-* ✅ Multi-value array attributes for SailPoint extension (via `[]` suffix)
 ---
 
 ## 🧱 Tech Stack
