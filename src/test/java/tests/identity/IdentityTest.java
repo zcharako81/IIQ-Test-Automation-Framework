@@ -72,6 +72,26 @@ public class IdentityTest extends BaseTest {
     }
 
     @Test(dependsOnMethods = "testLaunchWorkflowRefreshIdentities",
+          description = "SCIM: Launch LDAP aggregation workflow")
+    public void testLaunchWorkflowLdapAggregation() {
+        String taskName = ConfigManager.get("task.name2");
+        for (IdentityContext ctx : identities.values()) {
+            var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
+            var response = workflowService.launchWorkflow(workflow);
+            Assert.assertEquals(response.statusCode(), 201, "Aggregation launch failed for: " + ctx.identityKey);
+            String workflowId = response.jsonPath().getString("id");
+            Assert.assertNotNull(workflowId);
+            TestUtils.waitForWorkflowCompletion(workflowService, workflowId, 60, 5000);
+            var result = workflowService.getWorkflow(workflowId);
+            Assert.assertEquals(
+                    result.jsonPath().getString("completionStatus"),
+                    "Success",
+                    "Aggregation workflow failed for: " + ctx.identityKey
+            );
+        }
+    }
+
+    @Test(dependsOnMethods = "testLaunchWorkflowLdapAggregation",
           description = "SCIM: Verify identities")
     public void testVerifyIdentities() {
         for (IdentityContext ctx : identities.values()) {
@@ -107,8 +127,8 @@ public class IdentityTest extends BaseTest {
     }
 
     @Test(dependsOnMethods = "testVerifyIdentities",
-          description = "SCIM: Validate birthright role assignment")
-    public void testBirthrightRoleAssignment() {
+          description = "SCIM: Verify birthright role assignment")
+    public void testVerifyBirthrightRoleAssignment() {
         for (IdentityContext ctx : identities.values()) {
             List<String> expectedRoles = ConfigManager.getIdentityExpectedRoles(ctx.identityKey);
             Assert.assertNotNull(expectedRoles, "No expected roles defined for: " + ctx.identityKey);
@@ -132,28 +152,8 @@ public class IdentityTest extends BaseTest {
         }
     }
 
-    @Test(dependsOnMethods = "testBirthrightRoleAssignment",
-          description = "SCIM: Launch LDAP aggregation workflow")
-    public void testLaunchLdapAggregationWorkflows() {
-        String taskName = ConfigManager.get("task.name2");
-        for (IdentityContext ctx : identities.values()) {
-            var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
-            var response = workflowService.launchWorkflow(workflow);
-            Assert.assertEquals(response.statusCode(), 201, "Aggregation launch failed for: " + ctx.identityKey);
-            String workflowId = response.jsonPath().getString("id");
-            Assert.assertNotNull(workflowId);
-            TestUtils.waitForWorkflowCompletion(workflowService, workflowId, 60, 5000);
-            var result = workflowService.getWorkflow(workflowId);
-            Assert.assertEquals(
-                    result.jsonPath().getString("completionStatus"),
-                    "Success",
-                    "Aggregation workflow failed for: " + ctx.identityKey
-            );
-        }
-    }
-
     @SuppressWarnings("unchecked")
-    @Test(dependsOnMethods = "testLaunchLdapAggregationWorkflows",
+    @Test(dependsOnMethods = "testVerifyBirthrightRoleAssignment",
           description = "SCIM: Verify provisioned accounts")
     public void testVerifyAccounts() {
         for (IdentityContext ctx : identities.values()) {
