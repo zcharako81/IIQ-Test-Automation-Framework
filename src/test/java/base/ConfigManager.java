@@ -138,4 +138,24 @@ public class ConfigManager {
         }
         return result;
     }
+
+    /**
+     * Returns the set of all unique account types across all identities.
+     * Derives app keys from every {@code identity.<key>.accounts} property.
+     */
+    public static Set<String> getAllAccountTypes() {
+        Set<String> allTypes = new LinkedHashSet<>();
+        for (String identityKey : getIdentityKeys()) {
+            allTypes.addAll(getAccountTypes(identityKey));
+        }
+        return allTypes;
+    }
+
+    /**
+     * Returns the IIQ aggregation task name for the given app key.
+     * Reads from {@code task.aggregation.<appKey>} in config.properties.
+     */
+    public static String getAggregationTaskName(String appKey) {
+        return get("task.aggregation." + appKey);
+    }
 }

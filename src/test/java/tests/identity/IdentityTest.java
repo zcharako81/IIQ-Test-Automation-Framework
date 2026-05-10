@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -74,27 +75,35 @@ public class IdentityTest extends BaseTest {
     }
 
     @Test(dependsOnMethods = "testLaunchWorkflowRefreshIdentities",
-          description = "SCIM: Launch LDAP aggregation workflow")
-    public void testLaunchWorkflowLdapAggregation() {
-        String taskName = ConfigManager.get("task.name2");
-        for (IdentityContext ctx : identities.values()) {
-            if (!shouldRun(ctx.identityKey, "aggregation")) continue;
-            var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
-            var response = workflowService.launchWorkflow(workflow);
-            Assert.assertEquals(response.statusCode(), 201, "Aggregation launch failed for: " + ctx.identityKey);
-            String workflowId = response.jsonPath().getString("id");
-            Assert.assertNotNull(workflowId);
-            TestUtils.waitForWorkflowCompletion(workflowService, workflowId, TestUtils.waitTimeout(), TestUtils.aggregationPoll());
-            var result = workflowService.getWorkflow(workflowId);
-            Assert.assertEquals(
-                    result.jsonPath().getString("completionStatus"),
-                    "Success",
-                    "Aggregation workflow failed for: " + ctx.identityKey
-            );
+          description = "SCIM: Launch aggregation workflows for all applications")
+    public void testLaunchWorkflowAggregations() {
+        Set<String> appKeys = ConfigManager.getAllAccountTypes();
+        for (String appKey : appKeys) {
+            String taskName = ConfigManager.getAggregationTaskName(appKey);
+            for (IdentityContext ctx : identities.values()) {
+                if (!shouldRun(ctx.identityKey, "aggregation")) continue;
+                // Only launch if this identity has an account for this app
+                List<String> identityApps = ConfigManager.getAccountTypes(ctx.identityKey);
+                if (!identityApps.contains(appKey)) continue;
+                var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
+                var response = workflowService.launchWorkflow(workflow);
+                Assert.assertEquals(response.statusCode(), 201,
+                        "Aggregation launch failed for app: " + appKey + " identity: " + ctx.identityKey);
+                String workflowId = response.jsonPath().getString("id");
+                Assert.assertNotNull(workflowId);
+                TestUtils.waitForWorkflowCompletion(workflowService, workflowId,
+                        TestUtils.waitTimeout(), TestUtils.aggregationPoll());
+                var result = workflowService.getWorkflow(workflowId);
+                Assert.assertEquals(
+                        result.jsonPath().getString("completionStatus"),
+                        "Success",
+                        "Aggregation workflow failed for app: " + appKey + " identity: " + ctx.identityKey
+                );
+            }
         }
     }
 
-    @Test(dependsOnMethods = "testLaunchWorkflowLdapAggregation",
+    @Test(dependsOnMethods = "testLaunchWorkflowAggregations",
           description = "SCIM: Verify identities")
     public void testVerifyIdentities() {
         for (IdentityContext ctx : identities.values()) {

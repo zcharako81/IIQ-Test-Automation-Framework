@@ -67,7 +67,7 @@ All configuration is driven by two properties files loaded in order (later wins 
 
 | File | Purpose |
 |---|---|
-| `config.properties` | IIQ URL, auth, workflow/task names, timeouts, logging |
+| `config.properties` | IIQ URL, auth, workflow/task names, timeouts, logging, aggregation task mappings |
 | `identity.properties` | Identity input + expected attributes, roles, and **per-identity account validation** |
 
 ### Global config (`config.properties`)
@@ -81,7 +81,8 @@ password=REPLACE_ME
 workflow.name=My-WF-TaskLauncher
 
 task.name1=RefreshIdentitySingle
-task.name2=LdapAccountAggregation
+# Application aggregation tasks — one per app key used in identity.properties
+task.aggregation.ldap=LdapAccountAggregation
 
 # --- Wait timeouts (read by TestUtils helpers) ---
 wait.timeout.seconds=60
@@ -132,6 +133,11 @@ identity.user1.account.ldap.expected.attributes.uid=john.doe.{suffix}
 identity.user1.account.ldap.expected.attributes.cn=john.doe.{suffix}
 identity.user1.account.ldap.expected.attributes.givenName=John
 identity.user1.account.ldap.expected.attributes.sn=Doe
+# Add a second app:
+# identity.user1.accounts=ldap,ad
+# identity.user1.account.ad.application=ActiveDirectory-Test
+# identity.user1.account.ad.expected.exists=true
+# identity.user1.account.ad.expected.attributes.sAMAccountName=john.doe.{suffix}
 ```
 
 The `{suffix}` placeholder is automatically replaced at runtime with `System.currentTimeMillis()`, matching the unique suffix appended to identities during creation.
@@ -226,7 +232,7 @@ mvn test -DsuiteXmlFile=Testng.xml
 Tests are strictly sequential via `dependsOnMethods`:
 1. `testCreateIdentities`
 2. `testLaunchWorkflowRefreshIdentities`
-3. `testLaunchWorkflowLdapAggregation`
+3. `testLaunchWorkflowAggregations`
 4. `testVerifyIdentities`
 5. `testVerifyBirthrightRoleAssignment`
 6. `testVerifyAccounts`
