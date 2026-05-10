@@ -193,7 +193,6 @@ public class IdentityTest extends BaseTest {
         for (IdentityContext ctx : identities.values()) {
             if (!shouldRun(ctx.identityKey, "verifyAccounts")) continue;
             var response = service.getUserAccounts(ctx.userId);
-            response.prettyPrint();
             Assert.assertEquals(response.statusCode(), 200, "Accounts fetch failed for: " + ctx.identityKey);
             // Extract account references from the User response (displayName, value, $ref)
             List<Map<String, Object>> accountRefs = response.jsonPath().getList(

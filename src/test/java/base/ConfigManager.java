@@ -69,6 +69,13 @@ public class ConfigManager {
                 .collect(Collectors.toList());
     }
 
+    // -----------------------------------------------------
+    // Logging control
+    // -----------------------------------------------------
+    public static boolean isLoggingEnabled() {
+        return "true".equalsIgnoreCase(getOptional("logging.enabled"));
+    }
+
     public static List<String> getIdentityKeys() {
         String value = getOptional("identities");
         if (value == null || value.trim().isEmpty()) {
