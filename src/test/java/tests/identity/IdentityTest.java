@@ -62,37 +62,63 @@ public class IdentityTest extends BaseTest {
             var response = service.getUser(ctx.userId);
             Assert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
 
-            String prefix = "identity." + ctx.identityKey + ".expected.";
+            String p = "identity." + ctx.identityKey + ".expected.";
+            String ent = "'urn:ietf:params:scim:schemas:extension:enterprise:2.0:User'.";
+
             Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
-            Assert.assertEquals(
-                    response.jsonPath().getString("userName"),
-                    ConfigManager.get(prefix + "userName").replace("{suffix}", suffix)
-            );
-            Assert.assertEquals(
-                    response.jsonPath().getString("name.givenName"),
-                    ConfigManager.get(prefix + "givenName")
-            );
-            Assert.assertEquals(
-                    response.jsonPath().getString("name.familyName"),
-                    ConfigManager.get(prefix + "familyName")
-            );
-            Assert.assertEquals(
-                    response.jsonPath().getString("displayName"),
-                    ConfigManager.get(prefix + "displayName")
-            );
-            Assert.assertEquals(
-                    response.jsonPath().getString("emails[0].value"),
-                    ConfigManager.get(prefix + "email").replace("{suffix}", suffix)
-            );
-            Assert.assertEquals(
-                    response.jsonPath().getString("'urn:ietf:params:scim:schemas:extension:enterprise:2.0:User'.manager.value"),
-                    ConfigManager.get(prefix + "managerValue")
-            );
-            Assert.assertEquals(
-                    response.jsonPath().getBoolean("active"),
-                    Boolean.valueOf(ConfigManager.get(prefix + "active"))
-            );
+            verifyStringAttr(response, p + "userName", "userName", suffix);
+            verifyStringAttr(response, p + "givenName", "name.givenName", suffix);
+            verifyStringAttr(response, p + "familyName", "name.familyName", suffix);
+            verifyStringAttr(response, p + "middleName", "name.middleName", suffix);
+            verifyStringAttr(response, p + "honorificPrefix", "name.honorificPrefix", suffix);
+            verifyStringAttr(response, p + "honorificSuffix", "name.honorificSuffix", suffix);
+            verifyStringAttr(response, p + "displayName", "displayName", suffix);
+            verifyStringAttr(response, p + "email", "emails[0].value", suffix);
+            verifyStringAttr(response, p + "title", "title", suffix);
+            verifyStringAttr(response, p + "userType", "userType", suffix);
+            verifyStringAttr(response, p + "preferredLanguage", "preferredLanguage", suffix);
+            verifyStringAttr(response, p + "timezone", "timezone", suffix);
+            verifyStringAttr(response, p + "locale", "locale", suffix);
+            verifyStringAttr(response, p + "nickName", "nickName", suffix);
+            verifyStringAttr(response, p + "externalId", "externalId", suffix);
+            verifyStringAttr(response, p + "profileUrl", "profileUrl", suffix);
+            verifyBooleanAttr(response, p + "active", "active");
+
+            // Enterprise extension
+            verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix);
+            verifyStringAttr(response, p + "employeeNumber", ent + "employeeNumber", suffix);
+            verifyStringAttr(response, p + "department", ent + "department", suffix);
+            verifyStringAttr(response, p + "costCenter", ent + "costCenter", suffix);
+            verifyStringAttr(response, p + "division", ent + "division", suffix);
+            verifyStringAttr(response, p + "organization", ent + "organization", suffix);
+
+            // Phone number (single entry, optional)
+            verifyStringAttr(response, p + "phoneNumber", "phoneNumbers[0].value", suffix);
+            verifyStringAttr(response, p + "phoneNumberType", "phoneNumbers[0].type", suffix);
+
+            // Address (single entry, optional)
+            verifyStringAttr(response, p + "addressStreet", "addresses[0].streetAddress", suffix);
+            verifyStringAttr(response, p + "addressLocality", "addresses[0].locality", suffix);
+            verifyStringAttr(response, p + "addressRegion", "addresses[0].region", suffix);
+            verifyStringAttr(response, p + "addressPostalCode", "addresses[0].postalCode", suffix);
+            verifyStringAttr(response, p + "addressCountry", "addresses[0].country", suffix);
         }
+    }
+
+    /** Asserts a string attribute only if the property key exists. Skips silently if missing. */
+    private void verifyStringAttr(Response r, String propKey, String jsonPath, String suffix) {
+        String expected = ConfigManager.getOptional(propKey);
+        if (expected == null) return;
+        String actual = r.jsonPath().getString(jsonPath);
+        Assert.assertEquals(actual, expected.replace("{suffix}", suffix), "Mismatch: " + propKey);
+    }
+
+    /** Asserts a boolean attribute only if the property key exists. Skips silently if missing. */
+    private void verifyBooleanAttr(Response r, String propKey, String jsonPath) {
+        String expected = ConfigManager.getOptional(propKey);
+        if (expected == null) return;
+        Boolean actual = r.jsonPath().getBoolean(jsonPath);
+        Assert.assertEquals(actual, Boolean.valueOf(expected), "Mismatch: " + propKey);
     }
 
     @Test(dependsOnMethods = "testVerifyIdentities",
