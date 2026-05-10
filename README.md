@@ -52,7 +52,7 @@ src/test/iiq
 
 - **Prerequisite**: Workflow `My-WF-TaskLauncher` must be imported into IIQ before test execution.
 - **Task names**: Can be changed in `config.properties` (e.g. for Identity Refresh or Account Aggregation). The identity name is passed as a task filter to reduce execution time.
-- **Multi-identity mode**: Define identities via the `identities` key in `identity.properties`. Each identity gets its own set of input, expected, role, and account properties.
+- **Multi-identity mode**: Define identities via the `identities` key in `identity.properties`. Each identity gets its own set of input, expected, role, and account properties. Accounts are defined via `identity.<key>.accounts` (comma-separated for multiple accounts per identity).
 - **managerValue**: Must be replaced with a valid IIQ identity ID (the `id` field of an existing user, e.g. `spadmin`). Find the correct ID by querying `GET /scim/v2/Users?filter=userName eq "spadmin"` on your IIQ server and copying the `id` value. The same applies to `managerDisplayName` (set to the userName of the manager).
 - **{suffix} placeholder**: Appended to `userName`, `email`, and account attributes like `uid` and `cn` to ensure uniqueness per run (resolved from `System.currentTimeMillis()`).
 - **Multiple roles**: Defined as comma-separated values in `identity.<key>.expected.roles`. For example: `identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE`.
@@ -122,7 +122,7 @@ identity.user1.expected.location=New York
 # comma-separated for multiple roles
 identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE
 
-# Per-identity account validation
+# Per-identity account validation (comma-separated for multiple accounts)
 identity.user1.accounts=ldap
 identity.user1.account.ldap.application=LDAP-Test
 identity.user1.account.ldap.expected.exists=true
