@@ -99,40 +99,49 @@ public class IdentityTest extends BaseTest {
                     () -> service.getUser(ctx.userId).statusCode() == 200,
                     30, 1000
             );
-            var response = service.getUser(ctx.userId);
+            String expectedPrefix = "identity." + ctx.identityKey + ".expected.";
+            Response response = service.getUser(ctx.userId);
             Assert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
-
-            String p = "identity." + ctx.identityKey + ".expected.";
-
             Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
-            TestUtils.verifyStringAttr(response, p + "userName", "userName", suffix);
-            TestUtils.verifyStringAttr(response, p + "firstname", "name.givenName", suffix);
-            TestUtils.verifyStringAttr(response, p + "lastname", "name.familyName", suffix);
-            TestUtils.verifyStringAttr(response, p + "displayName", "displayName", suffix);
-            TestUtils.verifyStringAttr(response, p + "userType", "userType", suffix);
-            TestUtils.verifyStringAttr(response, p + "email", "emails[0].value", suffix);
-            TestUtils.verifyBooleanAttr(response, p + "active", "active");
+            verifyIdentity(response, ctx.identityKey, expectedPrefix);
+        }
+    }
 
-            // Enterprise extension — manager
-            String ent = "'urn:ietf:params:scim:schemas:extension:enterprise:2.0:User'.";
-            TestUtils.verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix);
-            TestUtils.verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix);
+    /**
+     * Verifies identity attributes from a SCIM GET response against properties
+     * under the given expectedPrefix (e.g. "identity.user1.expected." or
+     * "identity.user1.expectedAfterModify.").
+     */
+    private void verifyIdentity(Response response, String identityKey, String expectedPrefix) {
+        String p = expectedPrefix;
 
-            // SailPoint extension — dynamically verified from expected properties
-            String sp = "'urn:ietf:params:scim:schemas:sailpoint:1.0:User'.";
-            String spPrefix = "identity." + ctx.identityKey + ".expected.sailpoint.";
-            Map<String, String> spExpected = ConfigManager.getByPrefix(spPrefix);
-            for (Map.Entry<String, String> entry : spExpected.entrySet()) {
-                String attrName = entry.getKey();
-                boolean isArray = entry.getValue().contains(",");
-                String jsonPath = isArray ? sp + attrName + "[0]" : sp + attrName;
-                String expectedValue = isArray
-                        ? entry.getValue().split("\\s*,\\s*")[0]
-                        : entry.getValue();
-                String actual = response.jsonPath().getString(jsonPath);
-                Assert.assertEquals(actual, expectedValue.replace("{suffix}", suffix),
-                        "Mismatch for sailpoint." + attrName + " on: " + ctx.identityKey);
-            }
+        TestUtils.verifyStringAttr(response, p + "userName", "userName", suffix);
+        TestUtils.verifyStringAttr(response, p + "firstname", "name.givenName", suffix);
+        TestUtils.verifyStringAttr(response, p + "lastname", "name.familyName", suffix);
+        TestUtils.verifyStringAttr(response, p + "displayName", "displayName", suffix);
+        TestUtils.verifyStringAttr(response, p + "userType", "userType", suffix);
+        TestUtils.verifyStringAttr(response, p + "email", "emails[0].value", suffix);
+        TestUtils.verifyBooleanAttr(response, p + "active", "active");
+
+        // Enterprise extension — manager
+        String ent = "'urn:ietf:params:scim:schemas:extension:enterprise:2.0:User'.";
+        TestUtils.verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix);
+        TestUtils.verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix);
+
+        // SailPoint extension — dynamically verified from expected properties
+        String sp = "'urn:ietf:params:scim:schemas:sailpoint:1.0:User'.";
+        String spPrefix = p + "sailpoint.";
+        Map<String, String> spExpected = ConfigManager.getByPrefix(spPrefix);
+        for (Map.Entry<String, String> entry : spExpected.entrySet()) {
+            String attrName = entry.getKey();
+            boolean isArray = entry.getValue().contains(",");
+            String jsonPath = isArray ? sp + attrName + "[0]" : sp + attrName;
+            String expectedValue = isArray
+                    ? entry.getValue().split("\\s*,\\s*")[0]
+                    : entry.getValue();
+            String actual = response.jsonPath().getString(jsonPath);
+            Assert.assertEquals(actual, expectedValue.replace("{suffix}", suffix),
+                    "Mismatch for sailpoint." + attrName + " on: " + identityKey);
         }
     }
 
@@ -225,6 +234,35 @@ public class IdentityTest extends BaseTest {
     }
 
     @Test(dependsOnMethods = "testVerifyAccounts",
+          description = "SCIM: Modify identities (PUT)")
+    public void testModifyIdentities() {
+        for (IdentityContext ctx : identities.values()) {
+            Identity identity = IdentityDataFactory.createIdentityForModify(suffix, ctx.identityKey);
+            identity.id = ctx.userId;
+            var response = service.putUser(ctx.userId, identity);
+            Assert.assertTrue(
+                    response.statusCode() == 200 || response.statusCode() == 204,
+                    "PUT failed for " + ctx.identityKey + ": " + response.statusCode());
+        }
+    }
+
+    @Test(dependsOnMethods = "testModifyIdentities",
+          description = "SCIM: Verify modified identities")
+    public void testVerifyModifiedIdentities() {
+        for (IdentityContext ctx : identities.values()) {
+            TestUtils.waitForCondition(
+                    () -> service.getUser(ctx.userId).statusCode() == 200,
+                    30, 1000
+            );
+            String expectedPrefix = "identity." + ctx.identityKey + ".expectedAfterModify.";
+            Response response = service.getUser(ctx.userId);
+            Assert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
+            Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
+            verifyIdentity(response, ctx.identityKey, expectedPrefix);
+        }
+    }
+
+    @Test(dependsOnMethods = "testVerifyModifiedIdentities",
           description = "SCIM: Delete provisioned accounts")
     public void testDeleteAccounts() {
         for (IdentityContext ctx : identities.values()) {

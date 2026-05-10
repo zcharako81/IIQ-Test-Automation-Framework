@@ -26,7 +26,31 @@ public class IdentityDataFactory {
     private static final Set<String> SAILPOINT_ARRAY_ATTRS = new HashSet<>(
             Arrays.asList("capabilities", "costcenter"));
 
+    /**
+     * Creates an Identity POJO from .input.* properties for SCIM POST (create).
+     * Suffix is appended/prepended — .input.* values do NOT contain {suffix}.
+     */
     public static Identity createIdentity(String suffix, String identityKey) {
+        return buildIdentity(suffix, identityKey, "input", true);
+    }
+
+    /**
+     * Creates an Identity POJO from .expectedAfterModify.* properties for SCIM PUT (modify).
+     * Suffix is resolved via {suffix} placeholder — .expectedAfterModify.* values DO contain {suffix}.
+     */
+    public static Identity createIdentityForModify(String suffix, String identityKey) {
+        return buildIdentity(suffix, identityKey, "expectedAfterModify", false);
+    }
+
+    /**
+     * Internal builder shared by createIdentity and createIdentityForModify.
+     * @param suffix       the unique timestamp suffix
+     * @param identityKey  the identity key (e.g. "user1")
+     * @param section      the property section: "input" or "expectedAfterModify"
+     * @param isCreate     true = append/prepend suffix; false = replace {suffix} placeholder
+     */
+    private static Identity buildIdentity(String suffix, String identityKey,
+                                          String section, boolean isCreate) {
         Identity user = new Identity();
         user.schemas = List.of(
                 "urn:ietf:params:scim:schemas:core:2.0:User",
@@ -34,22 +58,30 @@ public class IdentityDataFactory {
                 "urn:ietf:params:scim:schemas:sailpoint:1.0:User"
         );
 
-        String p = "identity." + identityKey + ".input.";
+        String p = "identity." + identityKey + "." + section + ".";
 
-        user.userName = props.getProperty(p + "userName") + "." + suffix;
+        // userName
+        String rawUserName = props.getProperty(p + "userName");
+        user.userName = isCreate
+                ? rawUserName + "." + suffix
+                : rawUserName.replace("{suffix}", suffix);
+
         user.displayName = props.getProperty(p + "displayName");
         user.userType = props.getProperty(p + "userType");
         user.active = Boolean.parseBoolean(props.getProperty(p + "active"));
 
-        // Name sub-attributes (property keys use IIQ ObjectConfig names)
+        // Name sub-attributes
         Identity.Name name = new Identity.Name();
         name.givenName = props.getProperty(p + "firstname");
         name.familyName = props.getProperty(p + "lastname");
         user.name = name;
 
         // Email
+        String rawEmail = props.getProperty(p + "email");
         Identity.Email email = new Identity.Email();
-        email.value = suffix + "." + props.getProperty(p + "email");
+        email.value = isCreate
+                ? suffix + "." + rawEmail
+                : rawEmail.replace("{suffix}", suffix);
         email.primary = true;
         user.emails = List.of(email);
 
@@ -75,6 +107,8 @@ public class IdentityDataFactory {
                 if (value != null && !value.isEmpty()) {
                     if (SAILPOINT_ARRAY_ATTRS.contains(attrName)) {
                         spMap.put(attrName, Arrays.asList(value.split("\\s*,\\s*")));
+                    } else if (value.contains("{suffix}")) {
+                        spMap.put(attrName, value.replace("{suffix}", suffix));
                     } else {
                         spMap.put(attrName, value);
                     }

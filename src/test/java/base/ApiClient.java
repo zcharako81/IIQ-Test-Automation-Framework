@@ -36,11 +36,35 @@ public class ApiClient {
 
     }
 
+    public static Response put(String endpoint, Object body) {
+
+        return baseRequest()
+
+                .body(body)
+
+                .put(endpoint)
+
+                .andReturn();
+
+    }
+
     public static Response get(String endpoint) {
 
         return baseRequest()
 
                 .get(endpoint)
+
+                .andReturn();
+
+    }
+
+    public static Response patch(String endpoint, Object body) {
+
+        return baseRequest()
+
+                .body(body)
+
+                .patch(endpoint)
 
                 .andReturn();
 

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Identity {
     public List<String> schemas;
+    public String id;
     public String userName;
     public Name name;
     public String displayName;

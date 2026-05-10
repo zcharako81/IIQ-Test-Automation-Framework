@@ -181,8 +181,10 @@ Tests are strictly sequential via `dependsOnMethods`:
 4. `testVerifyIdentities`
 5. `testVerifyBirthrightRoleAssignment`
 6. `testVerifyAccounts`
-7. `testDeleteAccounts`
-8. `testDeleteIdentities`
+7. `testModifyIdentities`
+8. `testVerifyModifiedIdentities`
+9. `testDeleteAccounts`
+10. `testDeleteIdentities`
 
 ---
 

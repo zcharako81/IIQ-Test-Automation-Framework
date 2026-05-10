@@ -15,6 +15,10 @@ public class IdentityService {
         return ApiClient.post(ENDPOINT, user);
     }
 
+    public Response putUser(String id, Identity user) {
+        return ApiClient.put(ENDPOINT + "/" + id, user);
+    }
+
     public Response getUser(String id) {
         return ApiClient.get(ENDPOINT + "/" + id);
     }
@@ -33,6 +37,10 @@ public class IdentityService {
         String baseUrl = ConfigManager.get("base.url");
         String path = refUrl.substring(refUrl.indexOf(baseUrl) + baseUrl.length());
         return ApiClient.get(path);
+    }
+
+    public Response patchUser(String id, Object patchBody) {
+        return ApiClient.patch(ENDPOINT + "/" + id, patchBody);
     }
 
     public Response deleteAccountByRef(String refUrl) {
