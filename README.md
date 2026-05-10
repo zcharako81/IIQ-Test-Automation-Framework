@@ -54,6 +54,7 @@ src/test/iiq
 - Task names can be changed in `config.properties` (e.g. for Identity Refresh or Account Aggregation). The identity name is passed as a task filter to reduce execution time.
 - **Multi-identity mode**: Define identities via the `identities` key in `identity.properties`. Each identity gets its own set of input, expected, role, and account properties.
 - A `{suffix}` placeholder (resolved to a unique timestamp per run) is appended to `userName`, `email`, and account attributes like `uid` and `cn` to ensure uniqueness.
+- **Multiple roles**: Expected birthright roles are defined as comma-separated values in `identity.<key>.expected.roles`. For example: `identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE`.
 - Test class: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `Testng.xml`).
 
 ## ⚙️ Configuration
@@ -106,7 +107,8 @@ identity.user1.input.active=true
 
 identity.user1.expected.userName=john.doe
 identity.user1.expected.givenName=John
-identity.user1.expected.roles=ALL_ACTIVE_USERS
+# comma-separated for multiple roles
+identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE
 
 # Per-identity account validation
 identity.user1.accounts=ldap
