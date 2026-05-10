@@ -23,6 +23,7 @@ This framework supports end-to-end IAM testing including:
 | Test Framework  | TestNG |
 | API Testing     | REST-Assured |
 | Configuration   | Properties files |
+| Tested Against | SailPoint IdentityIQ 8.5 |
 ---
 
 ## 📁 Project Structure
