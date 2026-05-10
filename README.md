@@ -6,12 +6,12 @@ It can be executed standalone or integrated to a DevOps pipeline.
 This framework supports end-to-end IAM testing including:
 
 * ✅ Create identities / Verify identities / Delete identities
+* ✅ Multi-identity lifecycle — test multiple identities in one run
 * ✅ Launch Workflows (via SCIM)
 * ✅ Launch Tasks (via Workflow)
 * ✅ Verify Identity attributes
 * ✅ Verify Birthright Role assignments
 * ✅ Verify provisioned accounts (multi-application)
-* ✅ **Multi-identity lifecycle** — test multiple identities in one run
 ---
 
 ## 🧱 Tech Stack
