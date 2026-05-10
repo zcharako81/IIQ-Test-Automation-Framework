@@ -109,6 +109,8 @@ identity.user1.input.active=true
 identity.user1.input.sailpoint.title=Software Engineer
 identity.user1.input.sailpoint.department=Engineering
 identity.user1.input.sailpoint.location=New York
+# Multi-value array attribute (suffix [] in key name)
+identity.user1.input.sailpoint.capabilities[]=Auditor,Role Administrator
 
 identity.user1.expected.userName=john.doe.{suffix}
 identity.user1.expected.firstname=John
@@ -118,6 +120,7 @@ identity.user1.expected.userType=employee
 identity.user1.expected.sailpoint.title=Software Engineer
 identity.user1.expected.sailpoint.department=Engineering
 identity.user1.expected.sailpoint.location=New York
+identity.user1.expected.sailpoint.capabilities[]=Auditor,Role Administrator
 # comma-separated for multiple roles
 identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE
 
