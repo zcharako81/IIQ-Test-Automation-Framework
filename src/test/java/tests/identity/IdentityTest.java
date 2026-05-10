@@ -65,41 +65,25 @@ public class IdentityTest extends BaseTest {
             String p = "identity." + ctx.identityKey + ".expected.";
 
             Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
-            verifyStringAttr(response, p + "userName", "userName", suffix);
-            verifyStringAttr(response, p + "givenName", "name.givenName", suffix);
-            verifyStringAttr(response, p + "familyName", "name.familyName", suffix);
-            verifyStringAttr(response, p + "displayName", "displayName", suffix);
-            verifyStringAttr(response, p + "userType", "userType", suffix);
-            verifyStringAttr(response, p + "email", "emails[0].value", suffix);
-            verifyBooleanAttr(response, p + "active", "active");
+            TestUtils.verifyStringAttr(response, p + "userName", "userName", suffix);
+            TestUtils.verifyStringAttr(response, p + "givenName", "name.givenName", suffix);
+            TestUtils.verifyStringAttr(response, p + "familyName", "name.familyName", suffix);
+            TestUtils.verifyStringAttr(response, p + "displayName", "displayName", suffix);
+            TestUtils.verifyStringAttr(response, p + "userType", "userType", suffix);
+            TestUtils.verifyStringAttr(response, p + "email", "emails[0].value", suffix);
+            TestUtils.verifyBooleanAttr(response, p + "active", "active");
 
             // Enterprise extension — manager
             String ent = "'urn:ietf:params:scim:schemas:extension:enterprise:2.0:User'.";
-            verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix);
-            verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix);
+            TestUtils.verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix);
+            TestUtils.verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix);
 
             // SailPoint extension — IIQ-native equivalents
             String sp = "'urn:ietf:params:scim:schemas:sailpoint:1.0:User'.";
-            verifyStringAttr(response, p + "jobtitle", sp + "jobtitle", suffix);
-            verifyStringAttr(response, p + "Department", sp + "Department", suffix);
-            verifyStringAttr(response, p + "location", sp + "location", suffix);
+            TestUtils.verifyStringAttr(response, p + "jobtitle", sp + "jobtitle", suffix);
+            TestUtils.verifyStringAttr(response, p + "Department", sp + "Department", suffix);
+            TestUtils.verifyStringAttr(response, p + "location", sp + "location", suffix);
         }
-    }
-
-    /** Asserts a string attribute only if the property key exists. Skips silently if missing. */
-    private void verifyStringAttr(Response r, String propKey, String jsonPath, String suffix) {
-        String expected = ConfigManager.getOptional(propKey);
-        if (expected == null) return;
-        String actual = r.jsonPath().getString(jsonPath);
-        Assert.assertEquals(actual, expected.replace("{suffix}", suffix), "Mismatch: " + propKey);
-    }
-
-    /** Asserts a boolean attribute only if the property key exists. Skips silently if missing. */
-    private void verifyBooleanAttr(Response r, String propKey, String jsonPath) {
-        String expected = ConfigManager.getOptional(propKey);
-        if (expected == null) return;
-        Boolean actual = r.jsonPath().getBoolean(jsonPath);
-        Assert.assertEquals(actual, Boolean.valueOf(expected), "Mismatch: " + propKey);
     }
 
     @Test(dependsOnMethods = "testVerifyIdentities",
