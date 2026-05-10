@@ -31,7 +31,7 @@ This framework supports end-to-end IAM testing including:
 ```
 src/test/java
 │
-├── base/                # Core framework classes (API, config, auth, scim schemas)
+├── base/                # Core framework classes (API, config, auth, SCIM schemas)
 ├── model/               # SCIM models (Identity, Workflow, etc.)
 ├── services/            # API service layer (Identity, Workflow)
 ├── factory/             # Test data builders
