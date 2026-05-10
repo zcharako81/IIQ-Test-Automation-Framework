@@ -80,7 +80,7 @@ password=REPLACE_ME
 
 workflow.name=My-WF-TaskLauncher
 
-task.name1=RefreshIdentitySingle
+task.refresh=RefreshIdentitySingle
 # Application aggregation tasks — one per app key used in identity.properties
 task.aggregation.ldap=LdapAccountAggregation
 

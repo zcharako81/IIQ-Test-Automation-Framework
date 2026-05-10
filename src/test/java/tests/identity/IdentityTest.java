@@ -56,7 +56,7 @@ public class IdentityTest extends BaseTest {
     @Test(dependsOnMethods = "testCreateIdentities",
           description = "SCIM: Launch refresh workflow for identities")
     public void testLaunchWorkflowRefreshIdentities() {
-        String taskName = ConfigManager.get("task.name1");
+        String taskName = ConfigManager.get("task.refresh");
         for (IdentityContext ctx : identities.values()) {
             if (!shouldRun(ctx.identityKey, "refresh")) continue;
             var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
