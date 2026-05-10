@@ -11,7 +11,6 @@ public class ConfigManager {
     static {
         load("config.properties");
         load("identity.properties");
-        load("account.properties");
     }
 
     // -----------------------------------------------------
@@ -70,18 +69,23 @@ public class ConfigManager {
                 .collect(Collectors.toList());
     }
 
-    // -----------------------------------------------------
-    // Convenience method for your use case
-    // -----------------------------------------------------
-    public static List<String> getExpectedRoles() {
-        return getList("identity.expected.roles");
+    public static List<String> getIdentityKeys() {
+        String value = getOptional("identities");
+        if (value == null || value.trim().isEmpty()) {
+            return List.of();
+        }
+        return Arrays.stream(value.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
     }
-    
-    // -----------------------------------------------------
-    // Get account types as list (comma-separated)
-    // -----------------------------------------------------
-    public static List<String> getAccountTypes() {
-        String value = get("accounts");
+
+    public static List<String> getIdentityExpectedRoles(String identityKey) {
+        return getList("identity." + identityKey + ".expected.roles");
+    }
+
+    public static List<String> getAccountTypes(String identityKey) {
+        String value = getOptional("identity." + identityKey + ".accounts");
         if (value == null || value.trim().isEmpty()) {
             return List.of();
         }
@@ -91,11 +95,15 @@ public class ConfigManager {
                 .collect(Collectors.toList());
     }
     
-    public static Map<String, String> getAccountExpectedAttributes(String type) {
-        return getByPrefix("account." + type + ".expected.attributes.");
+    public static Map<String, String> getAccountExpectedAttributes(String identityKey, String type) {
+        return getByPrefix("identity." + identityKey + ".account." + type + ".expected.attributes.");
     }
-    public static String getAccountApplication(String type) {
-        return get("account." + type + ".application");
+    public static String getAccountApplication(String identityKey, String type) {
+        return get("identity." + identityKey + ".account." + type + ".application");
+    }
+    public static String getAccountExists(String identityKey, String type) {
+        String value = getOptional("identity." + identityKey + ".account." + type + ".expected.exists");
+        return value != null ? value : "false";
     }
     public static Map<String, String> getByPrefix(String prefix) {
         Map<String, String> result = new HashMap<>();

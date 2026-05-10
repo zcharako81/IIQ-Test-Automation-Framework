@@ -20,43 +20,39 @@ public class IdentityDataFactory {
 	        }
 	    }
 	    
-	    public static Identity createIdentity(String suffix) {
-	    	 Identity user = new Identity();
-	         // SCIM mandatory schema
-	         user.schemas = List.of(
-	                 "urn:ietf:params:scim:schemas:core:2.0:User",
-	                 "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
-	         );
+    public static Identity createIdentity(String suffix, String identityKey) {
+        Identity user = new Identity();
+        user.schemas = List.of(
+                "urn:ietf:params:scim:schemas:core:2.0:User",
+                "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+        );
 
-	         user.userName = props.getProperty("identity.input.userName") + "." + suffix;
-	         user.displayName = props.getProperty("identity.input.displayName");
-	         user.active = Boolean.valueOf(props.getProperty("identity.input.active"));
-	         
-	         // Name object
-	         Identity.Name name = new Identity.Name();
-	         name.givenName = props.getProperty("identity.input.givenName");
-	         name.familyName = props.getProperty("identity.input.familyName");
-	         user.name = name;
+        String prefix = "identity." + identityKey + ".input.";
 
-	         // Email
-	         Identity.Email email = new Identity.Email();
-	         email.value = suffix + "." + props.getProperty("identity.input.email");
-	         email.primary = true;
-	         user.emails = List.of(email);
-	         
-	         // NEU: Manager / Enterprise Extension
-	         String managerName = props.getProperty("identity.input.managerValue"); 
-	         if (managerName != null && !managerName.isEmpty()) {
-	             Identity.EnterpriseExtension enterprise = new Identity.EnterpriseExtension();
-	             Identity.Manager manager = new Identity.Manager();
-	             
-	             manager.value = managerName;
-	             manager.displayName = props.getProperty("identity.input.managerDisplayName");
-	             
-	             enterprise.manager = manager;
-	             user.enterpriseExtension = enterprise;
-	         }
-	         return user;
-	     }
-	    }
-	    	   
+        user.userName = props.getProperty(prefix + "userName") + "." + suffix;
+        user.displayName = props.getProperty(prefix + "displayName");
+        user.active = Boolean.valueOf(props.getProperty(prefix + "active"));
+
+        Identity.Name name = new Identity.Name();
+        name.givenName = props.getProperty(prefix + "givenName");
+        name.familyName = props.getProperty(prefix + "familyName");
+        user.name = name;
+
+        Identity.Email email = new Identity.Email();
+        email.value = suffix + "." + props.getProperty(prefix + "email");
+        email.primary = true;
+        user.emails = List.of(email);
+
+        String managerName = props.getProperty(prefix + "managerValue");
+        if (managerName != null && !managerName.isEmpty()) {
+            Identity.EnterpriseExtension enterprise = new Identity.EnterpriseExtension();
+            Identity.Manager manager = new Identity.Manager();
+            manager.value = managerName;
+            manager.displayName = props.getProperty(prefix + "managerDisplayName");
+            enterprise.manager = manager;
+            user.enterpriseExtension = enterprise;
+        }
+        return user;
+    }
+
+}

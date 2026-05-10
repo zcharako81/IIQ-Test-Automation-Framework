@@ -2,9 +2,9 @@
 
 <suite name="IIQ Regression Suite" parallel="false">
 
-    <test name="Identity Tests">
+    <test name="Multi Identity Tests">
         <classes>
-            <class name="test.jml.IdentityTest"/>
+            <class name="tests.identity.IdentityTest"/>
         </classes>
     </test>
 
