@@ -237,6 +237,14 @@ create → refresh → aggregation → verifyCreate → verifyRoles → verifyAc
 
 Each identity's phase list runs independently (per-identity mode). If `.tests` property is absent, the full default lifecycle above runs.
 
+**Leaver / rehire scenario** — repeat `modify → verifyModify → verifyAccounts` to simulate attribute changes triggering downstream provisioning:
+
+```
+identity.user1.tests=create,refresh,aggregation,verifyCreate,verifyRoles,verifyAccounts,modify,verifyModify,verifyAccounts,deleteAccounts,delete
+```
+
+Any phase can be repeated any number of times. No Java changes needed.
+
 ---
 
 ## 📦 Dependencies
