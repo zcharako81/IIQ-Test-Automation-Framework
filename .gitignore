@@ -2,6 +2,7 @@ target/
 *.log
 *.class
 *.bak
+AGENTS.md
 .settings/
 .project
 test-output
