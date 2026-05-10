@@ -67,7 +67,7 @@ All configuration is driven by two properties files loaded in order (later wins 
 
 | File | Purpose |
 |---|---|
-| `config.properties` | IIQ URL, auth, SCIM paths, workflow/task names, timeouts |
+| `config.properties` | IIQ URL, auth, workflow/task names, timeouts, logging |
 | `identity.properties` | Identity input + expected attributes, roles, and **per-identity account validation** |
 
 ### Global config (`config.properties`)
@@ -78,19 +78,15 @@ auth.type=basic
 username=REPLACE_ME
 password=REPLACE_ME
 
-scim.base.path=/scim/v2
-scim.users.endpoint=/Users
-scim.workflows.endpoint=/LaunchedWorkflows
-
 workflow.name=My-WF-TaskLauncher
+
 task.name1=RefreshIdentitySingle
 task.name2=LdapAccountAggregation
 
-identity.scim.roles=attributes=urn:ietf:params:scim:schemas:sailpoint:1.0:User:roles
-identity.scim.accounts=attributes=urn:ietf:params:scim:schemas:sailpoint:1.0:User:accounts
-
-wait.timeout.seconds=30
-workflow.wait.timeout.seconds=60
+# --- Wait timeouts (read by TestUtils helpers) ---
+wait.timeout.seconds=60
+wait.poll.interval.ms=2000
+wait.aggregation.poll.interval.ms=5000
 ```
 
 ### Identity + Account test data (`identity.properties`)
@@ -183,6 +179,30 @@ identity.user1.expectedAfterModify.displayName=John Doe PATCHED
 identity.user1.expectedAfterModify.sailpoint.title=Senior Software Engineer
 identity.user1.expectedAfterModify.sailpoint.Identity_End_Date=2029-12-31
 ```
+
+---
+
+## 📐 API Contract Constants — `base/ScimSchemas.java`
+
+SCIM schema URNs and REST endpoint paths are **API-contract constants** defined by RFC 7644 and the SailPoint SCIM extension. They never change between environments, so they live in a single Java constants class rather than `config.properties`:
+
+| Constant | Value |
+|---|---|
+| `SCHEMA_CORE_USER` | `urn:ietf:params:scim:schemas:core:2.0:User` |
+| `SCHEMA_ENTERPRISE_USER` | `urn:ietf:params:scim:schemas:extension:enterprise:2.0:User` |
+| `SCHEMA_SAILPOINT_USER` | `urn:ietf:params:scim:schemas:sailpoint:1.0:User` |
+| `SCHEMA_SAILPOINT_WORKFLOW` | `urn:ietf:params:scim:schemas:sailpoint:1.0:LaunchedWorkflow` |
+| `SCHEMA_SAILPOINT_APP_ACCOUNT_PREFIX` | `urn:...:Application:Schema:` |
+| `SCIM_BASE_PATH` | `/scim/v2` |
+| `USERS_ENDPOINT` | `/Users` |
+| `WORKFLOWS_ENDPOINT` | `/LaunchedWorkflows` |
+| `USERS_FULL_PATH` | `/scim/v2/Users` |
+| `QUERY_ROLES` | `attributes=...User:roles` |
+| `QUERY_ACCOUNTS` | `attributes=...User:accounts` |
+| `JSONPATH_ENTERPRISE` | `'...enterprise:2.0:User'.` |
+| `JSONPATH_SAILPOINT` | `'...sailpoint:1.0:User'.` |
+
+The derived constants (`QUERY_*`, `JSONPATH_*`, `USERS_FULL_PATH`) are built from the base URNs and paths, ensuring every reference across services, models, and tests stays in sync. If SailPoint ever changes a schema URN in a future release, you update it in **one place** only.
 
 ---
 

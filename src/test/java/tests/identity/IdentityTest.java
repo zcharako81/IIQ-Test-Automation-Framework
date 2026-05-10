@@ -2,6 +2,7 @@ package tests.identity;
 
 import tests.base.BaseTest;
 
+import base.ScimSchemas;
 import services.IdentityService;
 import services.WorkflowService;
 
@@ -62,7 +63,7 @@ public class IdentityTest extends BaseTest {
             Assert.assertEquals(response.statusCode(), 201, "Workflow launch failed for: " + ctx.identityKey);
             String workflowId = response.jsonPath().getString("id");
             Assert.assertNotNull(workflowId);
-            TestUtils.waitForWorkflowCompletion(workflowService, workflowId, 60, 2000);
+            TestUtils.waitForWorkflowCompletion(workflowService, workflowId, TestUtils.waitTimeout(), TestUtils.waitPoll());
             var result = workflowService.getWorkflow(workflowId);
             Assert.assertEquals(
                     result.jsonPath().getString("completionStatus"),
@@ -83,7 +84,7 @@ public class IdentityTest extends BaseTest {
             Assert.assertEquals(response.statusCode(), 201, "Aggregation launch failed for: " + ctx.identityKey);
             String workflowId = response.jsonPath().getString("id");
             Assert.assertNotNull(workflowId);
-            TestUtils.waitForWorkflowCompletion(workflowService, workflowId, 60, 5000);
+            TestUtils.waitForWorkflowCompletion(workflowService, workflowId, TestUtils.waitTimeout(), TestUtils.aggregationPoll());
             var result = workflowService.getWorkflow(workflowId);
             Assert.assertEquals(
                     result.jsonPath().getString("completionStatus"),
@@ -100,7 +101,7 @@ public class IdentityTest extends BaseTest {
             if (!shouldRun(ctx.identityKey, "verifyCreate")) continue;
             TestUtils.waitForCondition(
                     () -> service.getUser(ctx.userId).statusCode() == 200,
-                    30, 1000
+                    TestUtils.waitTimeout(), TestUtils.waitPoll()
             );
             String expectedPrefix = "identity." + ctx.identityKey + ".expected.";
             Response response = service.getUser(ctx.userId);
@@ -127,12 +128,12 @@ public class IdentityTest extends BaseTest {
         TestUtils.verifyBooleanAttr(response, p + "active", "active");
 
         // Enterprise extension — manager
-        String ent = "'urn:ietf:params:scim:schemas:extension:enterprise:2.0:User'.";
+        String ent = ScimSchemas.JSONPATH_ENTERPRISE;
         TestUtils.verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix);
         TestUtils.verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix);
 
         // SailPoint extension — dynamically verified from expected properties
-        String sp = "'urn:ietf:params:scim:schemas:sailpoint:1.0:User'.";
+        String sp = ScimSchemas.JSONPATH_SAILPOINT;
         String spPrefix = p + "sailpoint.";
         Map<String, String> spExpected = ConfigManager.getByPrefix(spPrefix);
         for (Map.Entry<String, String> entry : spExpected.entrySet()) {
@@ -171,13 +172,13 @@ public class IdentityTest extends BaseTest {
                 var response = service.getUserWithRoles(ctx.userId);
                 if (response.statusCode() != 200) return false;
                 List<String> actualRoles = response.jsonPath().getList(
-                        "'urn:ietf:params:scim:schemas:sailpoint:1.0:User'.roles.display");
+                        ScimSchemas.JSONPATH_SAILPOINT + "roles.display");
                 return actualRoles != null && actualRoles.containsAll(expectedRoles);
-            }, 60, 2000);
+            }, TestUtils.waitTimeout(), TestUtils.waitPoll());
             var response = service.getUserWithRoles(ctx.userId);
             Assert.assertEquals(response.statusCode(), 200);
             List<String> actualRoles = response.jsonPath().getList(
-                    "'urn:ietf:params:scim:schemas:sailpoint:1.0:User'.roles.display");
+                    ScimSchemas.JSONPATH_SAILPOINT + "roles.display");
             Assert.assertNotNull(actualRoles, "Roles must not be null for: " + ctx.identityKey);
             Assert.assertTrue(
                     actualRoles.containsAll(expectedRoles),
@@ -197,7 +198,7 @@ public class IdentityTest extends BaseTest {
             Assert.assertEquals(response.statusCode(), 200, "Accounts fetch failed for: " + ctx.identityKey);
             // Extract account references from the User response (displayName, value, $ref)
             List<Map<String, Object>> accountRefs = response.jsonPath().getList(
-                    "'urn:ietf:params:scim:schemas:sailpoint:1.0:User'.accounts");
+                    ScimSchemas.JSONPATH_SAILPOINT + "accounts");
             Assert.assertNotNull(accountRefs, "Account list is null for: " + ctx.identityKey);
             // Resolve each account $ref to full Account resource (includes applicationName)
             List<Map<String, Object>> accounts = new ArrayList<>();
@@ -227,7 +228,7 @@ public class IdentityTest extends BaseTest {
                 if (shouldExist) {
                     Assert.assertNotNull(account, "Account missing for type: " + type + " on identity: " + ctx.identityKey);
                     // Attributes are nested under a schema-specific key
-                    String schemaKey = "urn:ietf:params:scim:schemas:sailpoint:1.0:Application:Schema:"
+                    String schemaKey = ScimSchemas.SCHEMA_SAILPOINT_APP_ACCOUNT_PREFIX
                             + expectedApp + ":account";
                     Map<String, Object> acctAttrs = (Map<String, Object>) account.get(schemaKey);
                     Assert.assertNotNull(acctAttrs, "No schema attributes found for " + type
@@ -270,7 +271,7 @@ public class IdentityTest extends BaseTest {
             if (!shouldRun(ctx.identityKey, "verifyModify")) continue;
             TestUtils.waitForCondition(
                     () -> service.getUser(ctx.userId).statusCode() == 200,
-                    30, 1000
+                    TestUtils.waitTimeout(), TestUtils.waitPoll()
             );
             String expectedPrefix = "identity." + ctx.identityKey + ".expectedAfterModify.";
             Response response = service.getUser(ctx.userId);
@@ -289,7 +290,7 @@ public class IdentityTest extends BaseTest {
             Assert.assertEquals(response.statusCode(), 200,
                     "Accounts fetch failed for delete on: " + ctx.identityKey);
             List<Map<String, Object>> accountRefs = response.jsonPath().getList(
-                    "'urn:ietf:params:scim:schemas:sailpoint:1.0:User'.accounts");
+                    ScimSchemas.JSONPATH_SAILPOINT + "accounts");
             if (accountRefs == null || accountRefs.isEmpty()) continue;
             for (Map<String, Object> ref : accountRefs) {
                 String refUrl = (String) ref.get("$ref");

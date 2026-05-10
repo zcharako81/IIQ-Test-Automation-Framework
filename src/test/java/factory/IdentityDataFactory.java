@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import base.ScimSchemas;
 import model.Identity;
 
 public class IdentityDataFactory {
@@ -48,9 +49,9 @@ public class IdentityDataFactory {
                                           String section, boolean isCreate) {
         Identity user = new Identity();
         user.schemas = List.of(
-                "urn:ietf:params:scim:schemas:core:2.0:User",
-                "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User",
-                "urn:ietf:params:scim:schemas:sailpoint:1.0:User"
+                ScimSchemas.SCHEMA_CORE_USER,
+                ScimSchemas.SCHEMA_ENTERPRISE_USER,
+                ScimSchemas.SCHEMA_SAILPOINT_USER
         );
 
         String p = "identity." + identityKey + "." + section + ".";

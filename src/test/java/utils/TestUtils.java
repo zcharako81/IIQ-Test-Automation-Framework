@@ -10,6 +10,7 @@ import io.restassured.response.Response;
 import services.WorkflowService;
 
 public class TestUtils {
+
     public static void waitForCondition(Supplier<Boolean> condition,
                                         int timeoutSeconds,
                                         int pollMillis) {
@@ -46,6 +47,21 @@ public class TestUtils {
                 || "Warning".equalsIgnoreCase(state);
 
         }, timeoutSeconds, pollMillis);
+    }
+
+    /** Read default timeout in seconds from {@code wait.timeout.seconds} in config.properties. */
+    public static int waitTimeout() {
+        return Integer.parseInt(ConfigManager.get("wait.timeout.seconds"));
+    }
+
+    /** Read default poll interval in ms from {@code wait.poll.interval.ms} in config.properties. */
+    public static int waitPoll() {
+        return Integer.parseInt(ConfigManager.get("wait.poll.interval.ms"));
+    }
+
+    /** Read aggregation poll interval in ms from {@code wait.aggregation.poll.interval.ms}. */
+    public static int aggregationPoll() {
+        return Integer.parseInt(ConfigManager.get("wait.aggregation.poll.interval.ms"));
     }
 
     /** Asserts a string attribute only if the property key exists. Skips silently if missing. */

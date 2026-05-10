@@ -4,24 +4,20 @@ import java.util.HashMap;
 import java.util.Map;
 
 import base.ApiClient;
-import base.ConfigManager;
+import base.ScimSchemas;
 import model.LaunchedWorkflow;
 import io.restassured.response.Response;
 
 public class WorkflowService {
-	private static final String WORKFLOW_SCHEMA =
-		    "urn:ietf:params:scim:schemas:sailpoint:1.0:LaunchedWorkflow";
-
     private static final String ENDPOINT =
-        ConfigManager.get("scim.base.path") +
-        ConfigManager.get("scim.workflows.endpoint");
+            ScimSchemas.SCIM_BASE_PATH + ScimSchemas.WORKFLOWS_ENDPOINT;
 
     public Response launchWorkflow(LaunchedWorkflow wf) {
     	
 
         Map<String, Object> payload = new HashMap<>();
 
-        payload.put(WORKFLOW_SCHEMA, wf);
+        payload.put(ScimSchemas.SCHEMA_SAILPOINT_WORKFLOW, wf);
 
         return ApiClient.post(ENDPOINT, payload);
 

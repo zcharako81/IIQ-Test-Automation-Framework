@@ -2,14 +2,13 @@ package services;
 
 import base.ApiClient;
 import base.ConfigManager;
+import base.ScimSchemas;
 import io.restassured.response.Response;
 import model.Identity;
 
 public class IdentityService {
 
-    private static final String ENDPOINT =
-            ConfigManager.get("scim.base.path") +
-            ConfigManager.get("scim.users.endpoint");
+    private static final String ENDPOINT = ScimSchemas.USERS_FULL_PATH;
 
     public Response createUser(Identity user) {
         return ApiClient.post(ENDPOINT, user);
@@ -24,13 +23,11 @@ public class IdentityService {
     }
     
     public Response getUserWithRoles( String id) {
-        String rolesAttr = ConfigManager.get("identity.scim.roles");
-        return ApiClient.get(ENDPOINT + "/" + id + "?" + rolesAttr);
+        return ApiClient.get(ENDPOINT + "/" + id + "?" + ScimSchemas.QUERY_ROLES);
     }
     
     public Response getUserAccounts(String id) {
-        String attr =ConfigManager.get("identity.scim.accounts");
-        return ApiClient.get(ENDPOINT + "/" + id + "?" + attr);
+        return ApiClient.get(ENDPOINT + "/" + id + "?" + ScimSchemas.QUERY_ACCOUNTS);
     }
 
     public Response getAccountByRef(String refUrl) {

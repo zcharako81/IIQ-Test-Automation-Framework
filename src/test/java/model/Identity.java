@@ -5,6 +5,8 @@ import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import base.ScimSchemas;
+
 public class Identity {
     public List<String> schemas;
     public String id;
@@ -15,10 +17,10 @@ public class Identity {
     public List<Email> emails;
     public boolean active;
 
-    @JsonProperty("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User")
+    @JsonProperty(ScimSchemas.SCHEMA_ENTERPRISE_USER)
     public EnterpriseExtension enterpriseExtension;
 
-    @JsonProperty("urn:ietf:params:scim:schemas:sailpoint:1.0:User")
+    @JsonProperty(ScimSchemas.SCHEMA_SAILPOINT_USER)
     public Map<String, Object> sailPointUser;
 
     public static class Name {
