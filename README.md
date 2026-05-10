@@ -158,6 +158,31 @@ Attributes in `identity.properties` are split into two groups that map to **diff
 
 > **Note:** This framework uses **LDAP** as the target application for account provisioning. The dummy application name configured in the test data is `LDAP-Test`. Both the application name and expected account attributes can be customized per identity in `identity.properties`.
 
+### Modify lifecycle — `.modify.*` and `.expectedAfterModify.*`
+
+After creation and account verification, the framework modifies each identity via **SCIM PUT** (`PUT /scim/v2/Users/{id}`) and then re-verifies:
+
+```
+testVerifyAccounts → testModifyIdentities → testVerifyModifiedIdentities → testDeleteAccounts
+```
+
+- **`.modify.*`** — Partial attribute set documented in `identity.properties`. Not read by Java directly (the PUT uses `.expectedAfterModify.*` as the full representation), but kept for documentation of what changed.
+- **`.expectedAfterModify.*`** — Full expected state after modification. Read by `IdentityDataFactory.createIdentityForModify()` and verified by `testVerifyModifiedIdentities()`.
+
+The same schema split applies: `.expectedAfterModify.*` for core/enterprise, `.expectedAfterModify.sailpoint.*` for the SailPoint extension. The `{suffix}` placeholder is supported the same way as `.expected.*`.
+
+Example:
+```
+identity.user1.modify.displayName=John Doe PATCHED
+identity.user1.modify.sailpoint.title=Senior Software Engineer
+
+identity.user1.expectedAfterModify.userName=john.doe.{suffix}
+identity.user1.expectedAfterModify.firstname=John
+identity.user1.expectedAfterModify.displayName=John Doe PATCHED
+identity.user1.expectedAfterModify.sailpoint.title=Senior Software Engineer
+identity.user1.expectedAfterModify.sailpoint.Identity_End_Date=2029-12-31
+```
+
 ---
 
 ## 🧪 Test Execution
