@@ -159,8 +159,8 @@ mvn test -DsuiteXmlFile=Testng.xml
 
 Tests are strictly sequential via `dependsOnMethods`:
 1. `testCreateIdentities`
-2. `testVerifyIdentities`
-3. `testLaunchWorkflowRefreshIdentities`
+2. `testLaunchWorkflowRefreshIdentities`
+3. `testVerifyIdentities`
 4. `testBirthrightRoleAssignment`
 5. `testLaunchLdapAggregationWorkflows`
 6. `testVerifyAccounts`

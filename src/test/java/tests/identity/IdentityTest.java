@@ -52,6 +52,26 @@ public class IdentityTest extends BaseTest {
     }
 
     @Test(dependsOnMethods = "testCreateIdentities",
+          description = "SCIM: Launch refresh workflow for identities")
+    public void testLaunchWorkflowRefreshIdentities() {
+        String taskName = ConfigManager.get("task.name1");
+        for (IdentityContext ctx : identities.values()) {
+            var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
+            var response = workflowService.launchWorkflow(workflow);
+            Assert.assertEquals(response.statusCode(), 201, "Workflow launch failed for: " + ctx.identityKey);
+            String workflowId = response.jsonPath().getString("id");
+            Assert.assertNotNull(workflowId);
+            TestUtils.waitForWorkflowCompletion(workflowService, workflowId, 60, 2000);
+            var result = workflowService.getWorkflow(workflowId);
+            Assert.assertEquals(
+                    result.jsonPath().getString("completionStatus"),
+                    "Success",
+                    "Refresh workflow failed for: " + ctx.identityKey
+            );
+        }
+    }
+
+    @Test(dependsOnMethods = "testLaunchWorkflowRefreshIdentities",
           description = "SCIM: Verify identities")
     public void testVerifyIdentities() {
         for (IdentityContext ctx : identities.values()) {
@@ -87,26 +107,6 @@ public class IdentityTest extends BaseTest {
     }
 
     @Test(dependsOnMethods = "testVerifyIdentities",
-          description = "SCIM: Launch refresh workflow for identities")
-    public void testLaunchWorkflowRefreshIdentities() {
-        String taskName = ConfigManager.get("task.name1");
-        for (IdentityContext ctx : identities.values()) {
-            var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
-            var response = workflowService.launchWorkflow(workflow);
-            Assert.assertEquals(response.statusCode(), 201, "Workflow launch failed for: " + ctx.identityKey);
-            String workflowId = response.jsonPath().getString("id");
-            Assert.assertNotNull(workflowId);
-            TestUtils.waitForWorkflowCompletion(workflowService, workflowId, 60, 2000);
-            var result = workflowService.getWorkflow(workflowId);
-            Assert.assertEquals(
-                    result.jsonPath().getString("completionStatus"),
-                    "Success",
-                    "Refresh workflow failed for: " + ctx.identityKey
-            );
-        }
-    }
-
-    @Test(dependsOnMethods = "testLaunchWorkflowRefreshIdentities",
           description = "SCIM: Validate birthright role assignment")
     public void testBirthrightRoleAssignment() {
         for (IdentityContext ctx : identities.values()) {
