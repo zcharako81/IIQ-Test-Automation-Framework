@@ -105,7 +105,7 @@ identity.user1.input.displayName=John Doe
 identity.user1.input.email=john.doe@test.com
 identity.user1.input.active=true
 
-identity.user1.expected.userName=john.doe
+identity.user1.expected.userName=john.doe.{suffix}
 identity.user1.expected.givenName=John
 # comma-separated for multiple roles
 identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE

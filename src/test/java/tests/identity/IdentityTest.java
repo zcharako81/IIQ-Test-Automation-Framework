@@ -66,7 +66,7 @@ public class IdentityTest extends BaseTest {
             Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
             Assert.assertEquals(
                     response.jsonPath().getString("userName"),
-                    ConfigManager.get(prefix + "userName") + "." + suffix
+                    ConfigManager.get(prefix + "userName").replace("{suffix}", suffix)
             );
             Assert.assertEquals(
                     response.jsonPath().getString("name.givenName"),
@@ -82,7 +82,7 @@ public class IdentityTest extends BaseTest {
             );
             Assert.assertEquals(
                     response.jsonPath().getString("emails[0].value"),
-                    suffix + "." + ConfigManager.get(prefix + "email")
+                    ConfigManager.get(prefix + "email").replace("{suffix}", suffix)
             );
             Assert.assertEquals(
                     response.jsonPath().getString("'urn:ietf:params:scim:schemas:extension:enterprise:2.0:User'.manager.value"),
