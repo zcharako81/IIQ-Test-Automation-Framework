@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.function.Supplier;
 
 import org.testng.Assert;
+import org.testng.asserts.SoftAssert;
 
 import base.ConfigManager;
 import io.restassured.response.Response;
@@ -66,17 +67,46 @@ public class TestUtils {
 
     /** Asserts a string attribute only if the property key exists. Skips silently if missing. */
     public static void verifyStringAttr(Response r, String propKey, String jsonPath, String suffix) {
+        verifyStringAttr(r, propKey, jsonPath, suffix, null);
+    }
+
+    /**
+     * Asserts a string attribute with SoftAssert support.
+     * If softAssert is non-null, the assertion is collected rather than thrown immediately.
+     */
+    public static void verifyStringAttr(Response r, String propKey, String jsonPath,
+                                        String suffix, SoftAssert softAssert) {
         String expected = ConfigManager.getOptional(propKey);
         if (expected == null) return;
         String actual = r.jsonPath().getString(jsonPath);
-        Assert.assertEquals(actual, expected.replace("{suffix}", suffix), "Mismatch: " + propKey);
+        String message = "Mismatch: " + propKey;
+        String resolved = expected.replace("{suffix}", suffix);
+        if (softAssert != null) {
+            softAssert.assertEquals(actual, resolved, message);
+        } else {
+            Assert.assertEquals(actual, resolved, message);
+        }
     }
 
     /** Asserts a boolean attribute only if the property key exists. Skips silently if missing. */
     public static void verifyBooleanAttr(Response r, String propKey, String jsonPath) {
+        verifyBooleanAttr(r, propKey, jsonPath, null);
+    }
+
+    /**
+     * Asserts a boolean attribute with SoftAssert support.
+     * If softAssert is non-null, the assertion is collected rather than thrown immediately.
+     */
+    public static void verifyBooleanAttr(Response r, String propKey, String jsonPath,
+                                         SoftAssert softAssert) {
         String expected = ConfigManager.getOptional(propKey);
         if (expected == null) return;
         Boolean actual = r.jsonPath().getBoolean(jsonPath);
-        Assert.assertEquals(actual, Boolean.valueOf(expected), "Mismatch: " + propKey);
+        String message = "Mismatch: " + propKey;
+        if (softAssert != null) {
+            softAssert.assertEquals(actual, Boolean.valueOf(expected), message);
+        } else {
+            Assert.assertEquals(actual, Boolean.valueOf(expected), message);
+        }
     }
 }

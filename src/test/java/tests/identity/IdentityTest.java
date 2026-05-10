@@ -11,8 +11,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.testng.Assert;
+import org.testng.Reporter;
 import org.testng.annotations.Test;
+import org.testng.asserts.SoftAssert;
 
 import base.ConfigManager;
 import io.restassured.response.Response;
@@ -27,6 +28,7 @@ public class IdentityTest extends BaseTest {
     private final WorkflowService workflowService = new WorkflowService();
     private final Map<String, IdentityContext> identities = new LinkedHashMap<>();
     private final String suffix = String.valueOf(System.currentTimeMillis());
+    private SoftAssert softAssert;
 
     static class IdentityContext {
         String userId;
@@ -36,26 +38,33 @@ public class IdentityTest extends BaseTest {
 
     @Test(description = "SCIM: Per-identity lifecycle driven by identity.properties .tests list")
     public void testLifecycle() {
+        softAssert = new SoftAssert();
+        Reporter.log("=== Starting identity lifecycle (suffix: " + suffix + ") ===");
+
         // ── Phase 0: Create all identities (mandatory) ──────────────────────
         List<String> keys = ConfigManager.getIdentityKeys();
-        Assert.assertFalse(keys.isEmpty(), "No identity keys configured via 'identities' property");
+        softAssert.assertFalse(keys.isEmpty(), "No identity keys configured via 'identities' property");
         for (String key : keys) {
+            Reporter.log(">>> Creating identity: " + key);
             Identity user = IdentityDataFactory.createIdentity(suffix, key);
             var response = service.createUser(user);
-            Assert.assertEquals(response.statusCode(), 201, "Create failed for identity: " + key);
+            softAssert.assertEquals(response.statusCode(), 201, "Create failed for identity: " + key);
             String userId = response.jsonPath().getString("id");
-            Assert.assertNotNull(userId, "User ID must not be null for: " + key);
+            softAssert.assertNotNull(userId, "User ID must not be null for: " + key);
             IdentityContext ctx = new IdentityContext();
             ctx.userId = userId;
             ctx.identity = user;
             ctx.identityKey = key;
             identities.put(key, ctx);
+            Reporter.log("<<< Created identity: " + key + " -> id=" + userId);
         }
 
         // ── Per-identity ordered lifecycle ──────────────────────────────────
         for (IdentityContext ctx : identities.values()) {
             List<String> phases = ConfigManager.getIdentityTests(ctx.identityKey);
+            Reporter.log("=== Identity: " + ctx.identityKey + " (" + phases.size() + " phases) ===");
             for (String phase : phases) {
+                Reporter.log("  Phase: " + phase);
                 switch (phase) {
                     case "create":
                         break; // already done above
@@ -66,7 +75,7 @@ public class IdentityTest extends BaseTest {
                         doLaunchAggregations(ctx);
                         break;
                     case "verifyCreate":
-                        doVerifyIdentity(ctx);
+                        doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".expected.");
                         break;
                     case "verifyRoles":
                         doVerifyRoles(ctx);
@@ -78,7 +87,7 @@ public class IdentityTest extends BaseTest {
                         doModifyIdentity(ctx);
                         break;
                     case "verifyModify":
-                        doVerifyModifiedIdentity(ctx);
+                        doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".expectedAfterModify.");
                         break;
                     case "deleteAccounts":
                         doDeleteAccounts(ctx);
@@ -87,11 +96,15 @@ public class IdentityTest extends BaseTest {
                         doDeleteIdentity(ctx);
                         break;
                     default:
-                        throw new IllegalArgumentException(
-                                "Unknown phase: " + phase + " for identity: " + ctx.identityKey);
+                        softAssert.fail("Unknown phase: " + phase + " for identity: " + ctx.identityKey);
                 }
+                Reporter.log("  \u2713 Phase: " + phase + " done");
             }
+            Reporter.log("=== Identity: " + ctx.identityKey + " complete ===");
         }
+
+        softAssert.assertAll();
+        Reporter.log("=== All phases completed ===");
     }
 
     // ── Phase methods (single IdentityContext) ──────────────────────────────
@@ -100,13 +113,14 @@ public class IdentityTest extends BaseTest {
         String taskName = ConfigManager.get("task.refresh");
         var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
         var response = workflowService.launchWorkflow(workflow);
-        Assert.assertEquals(response.statusCode(), 201, "Workflow launch failed for: " + ctx.identityKey);
+        softAssert.assertEquals(response.statusCode(), 201,
+                "Workflow launch failed for: " + ctx.identityKey);
         String workflowId = response.jsonPath().getString("id");
-        Assert.assertNotNull(workflowId);
+        softAssert.assertNotNull(workflowId);
         TestUtils.waitForWorkflowCompletion(workflowService, workflowId,
                 TestUtils.waitTimeout(), TestUtils.waitPoll());
         var result = workflowService.getWorkflow(workflowId);
-        Assert.assertEquals(
+        softAssert.assertEquals(
                 result.jsonPath().getString("completionStatus"),
                 "Success",
                 "Refresh workflow failed for: " + ctx.identityKey
@@ -119,15 +133,15 @@ public class IdentityTest extends BaseTest {
             String taskName = ConfigManager.getAggregationTaskName(appKey);
             var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
             var response = workflowService.launchWorkflow(workflow);
-            Assert.assertEquals(response.statusCode(), 201,
+            softAssert.assertEquals(response.statusCode(), 201,
                     "Aggregation launch failed for app: " + appKey
                             + " identity: " + ctx.identityKey);
             String workflowId = response.jsonPath().getString("id");
-            Assert.assertNotNull(workflowId);
+            softAssert.assertNotNull(workflowId);
             TestUtils.waitForWorkflowCompletion(workflowService, workflowId,
                     TestUtils.waitTimeout(), TestUtils.aggregationPoll());
             var result = workflowService.getWorkflow(workflowId);
-            Assert.assertEquals(
+            softAssert.assertEquals(
                     result.jsonPath().getString("completionStatus"),
                     "Success",
                     "Aggregation workflow failed for app: " + appKey
@@ -136,21 +150,20 @@ public class IdentityTest extends BaseTest {
         }
     }
 
-    private void doVerifyIdentity(IdentityContext ctx) {
+    private void doVerifyIdentity(IdentityContext ctx, String expectedPrefix) {
         TestUtils.waitForCondition(
                 () -> service.getUser(ctx.userId).statusCode() == 200,
                 TestUtils.waitTimeout(), TestUtils.waitPoll()
         );
-        String expectedPrefix = "identity." + ctx.identityKey + ".expected.";
         Response response = service.getUser(ctx.userId);
-        Assert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
-        Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
+        softAssert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
+        softAssert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
         verifyIdentity(response, ctx.identityKey, expectedPrefix);
     }
 
     private void doVerifyRoles(IdentityContext ctx) {
         List<String> expectedRoles = ConfigManager.getIdentityExpectedRoles(ctx.identityKey);
-        Assert.assertNotNull(expectedRoles, "No expected roles defined for: " + ctx.identityKey);
+        softAssert.assertNotNull(expectedRoles, "No expected roles defined for: " + ctx.identityKey);
         TestUtils.waitForCondition(() -> {
             var resp = service.getUserWithRoles(ctx.userId);
             if (resp.statusCode() != 200) return false;
@@ -159,11 +172,11 @@ public class IdentityTest extends BaseTest {
             return actualRoles != null && actualRoles.containsAll(expectedRoles);
         }, TestUtils.waitTimeout(), TestUtils.waitPoll());
         var response = service.getUserWithRoles(ctx.userId);
-        Assert.assertEquals(response.statusCode(), 200);
+        softAssert.assertEquals(response.statusCode(), 200);
         List<String> actualRoles = response.jsonPath().getList(
                 ScimSchemas.JSONPATH_SAILPOINT + "roles.display");
-        Assert.assertNotNull(actualRoles, "Roles must not be null for: " + ctx.identityKey);
-        Assert.assertTrue(
+        softAssert.assertNotNull(actualRoles, "Roles must not be null for: " + ctx.identityKey);
+        softAssert.assertTrue(
                 actualRoles.containsAll(expectedRoles),
                 "Missing expected birthright roles for: " + ctx.identityKey
                         + ". Expected: " + expectedRoles + " but found: " + actualRoles
@@ -173,16 +186,18 @@ public class IdentityTest extends BaseTest {
     @SuppressWarnings("unchecked")
     private void doVerifyAccounts(IdentityContext ctx) {
         var response = service.getUserAccounts(ctx.userId);
-        Assert.assertEquals(response.statusCode(), 200, "Accounts fetch failed for: " + ctx.identityKey);
+        softAssert.assertEquals(response.statusCode(), 200,
+                "Accounts fetch failed for: " + ctx.identityKey);
         List<Map<String, Object>> accountRefs = response.jsonPath().getList(
                 ScimSchemas.JSONPATH_SAILPOINT + "accounts");
-        Assert.assertNotNull(accountRefs, "Account list is null for: " + ctx.identityKey);
+        softAssert.assertNotNull(accountRefs, "Account list is null for: " + ctx.identityKey);
         List<Map<String, Object>> accounts = new ArrayList<>();
         for (Map<String, Object> ref : accountRefs) {
             String refUrl = (String) ref.get("$ref");
-            Assert.assertNotNull(refUrl, "Missing $ref in account reference for: " + ctx.identityKey);
+            softAssert.assertNotNull(refUrl,
+                    "Missing $ref in account reference for: " + ctx.identityKey);
             Response acctResponse = service.getAccountByRef(refUrl);
-            Assert.assertEquals(acctResponse.statusCode(), 200,
+            softAssert.assertEquals(acctResponse.statusCode(), 200,
                     "Failed to fetch full account details from: " + refUrl);
             accounts.add(acctResponse.jsonPath().getMap(""));
         }
@@ -202,26 +217,26 @@ public class IdentityTest extends BaseTest {
             boolean shouldExist = Boolean.parseBoolean(
                     ConfigManager.getAccountExists(ctx.identityKey, type));
             if (shouldExist) {
-                Assert.assertNotNull(account,
+                softAssert.assertNotNull(account,
                         "Account missing for type: " + type + " on identity: " + ctx.identityKey);
                 String schemaKey = ScimSchemas.SCHEMA_SAILPOINT_APP_ACCOUNT_PREFIX
                         + expectedApp + ":account";
                 Map<String, Object> acctAttrs = (Map<String, Object>) account.get(schemaKey);
-                Assert.assertNotNull(acctAttrs, "No schema attributes found for " + type
+                softAssert.assertNotNull(acctAttrs, "No schema attributes found for " + type
                         + " on identity: " + ctx.identityKey);
                 Map<String, String> expectedAttrs =
                         ConfigManager.getAccountExpectedAttributes(ctx.identityKey, type);
                 for (var entry : expectedAttrs.entrySet()) {
                     Object actual = acctAttrs.get(entry.getKey());
                     String expected = entry.getValue().replace("{suffix}", suffix);
-                    Assert.assertEquals(
+                    softAssert.assertEquals(
                             String.valueOf(actual),
                             expected,
                             "Mismatch in " + type + " for attribute: " + entry.getKey()
                                     + " on identity: " + ctx.identityKey);
                 }
             } else {
-                Assert.assertNull(account,
+                softAssert.assertNull(account,
                         "Account should NOT exist for type: " + type
                                 + " on identity: " + ctx.identityKey);
             }
@@ -232,36 +247,24 @@ public class IdentityTest extends BaseTest {
         Identity identity = IdentityDataFactory.createIdentityForModify(suffix, ctx.identityKey);
         identity.id = ctx.userId;
         var response = service.putUser(ctx.userId, identity);
-        Assert.assertTrue(
+        softAssert.assertTrue(
                 response.statusCode() == 200 || response.statusCode() == 204,
                 "PUT failed for " + ctx.identityKey + ": " + response.statusCode());
     }
 
-    private void doVerifyModifiedIdentity(IdentityContext ctx) {
-        TestUtils.waitForCondition(
-                () -> service.getUser(ctx.userId).statusCode() == 200,
-                TestUtils.waitTimeout(), TestUtils.waitPoll()
-        );
-        String expectedPrefix = "identity." + ctx.identityKey + ".expectedAfterModify.";
-        Response response = service.getUser(ctx.userId);
-        Assert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
-        Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
-        verifyIdentity(response, ctx.identityKey, expectedPrefix);
-    }
-
     private void doDeleteAccounts(IdentityContext ctx) {
         var response = service.getUserAccounts(ctx.userId);
-        Assert.assertEquals(response.statusCode(), 200,
+        softAssert.assertEquals(response.statusCode(), 200,
                 "Accounts fetch failed for delete on: " + ctx.identityKey);
         List<Map<String, Object>> accountRefs = response.jsonPath().getList(
                 ScimSchemas.JSONPATH_SAILPOINT + "accounts");
         if (accountRefs == null || accountRefs.isEmpty()) return;
         for (Map<String, Object> ref : accountRefs) {
             String refUrl = (String) ref.get("$ref");
-            Assert.assertNotNull(refUrl,
+            softAssert.assertNotNull(refUrl,
                     "Missing $ref in account reference for: " + ctx.identityKey);
             var deleteResponse = service.deleteAccountByRef(refUrl);
-            Assert.assertTrue(
+            softAssert.assertTrue(
                     deleteResponse.statusCode() == 204 || deleteResponse.statusCode() == 200,
                     "Account delete failed for " + ctx.identityKey + " on ref: " + refUrl
                             + " \u2014 status: " + deleteResponse.statusCode());
@@ -270,7 +273,7 @@ public class IdentityTest extends BaseTest {
 
     private void doDeleteIdentity(IdentityContext ctx) {
         var response = service.deleteUser(ctx.userId);
-        Assert.assertTrue(
+        softAssert.assertTrue(
                 response.statusCode() == 204 || response.statusCode() == 200,
                 "Unexpected delete status for " + ctx.identityKey + ": " + response.statusCode()
         );
@@ -286,18 +289,18 @@ public class IdentityTest extends BaseTest {
     private void verifyIdentity(Response response, String identityKey, String expectedPrefix) {
         String p = expectedPrefix;
 
-        TestUtils.verifyStringAttr(response, p + "userName", "userName", suffix);
-        TestUtils.verifyStringAttr(response, p + "firstname", "name.givenName", suffix);
-        TestUtils.verifyStringAttr(response, p + "lastname", "name.familyName", suffix);
-        TestUtils.verifyStringAttr(response, p + "displayName", "displayName", suffix);
-        TestUtils.verifyStringAttr(response, p + "userType", "userType", suffix);
-        TestUtils.verifyStringAttr(response, p + "email", "emails[0].value", suffix);
-        TestUtils.verifyBooleanAttr(response, p + "active", "active");
+        TestUtils.verifyStringAttr(response, p + "userName", "userName", suffix, softAssert);
+        TestUtils.verifyStringAttr(response, p + "firstname", "name.givenName", suffix, softAssert);
+        TestUtils.verifyStringAttr(response, p + "lastname", "name.familyName", suffix, softAssert);
+        TestUtils.verifyStringAttr(response, p + "displayName", "displayName", suffix, softAssert);
+        TestUtils.verifyStringAttr(response, p + "userType", "userType", suffix, softAssert);
+        TestUtils.verifyStringAttr(response, p + "email", "emails[0].value", suffix, softAssert);
+        TestUtils.verifyBooleanAttr(response, p + "active", "active", softAssert);
 
         // Enterprise extension — manager
         String ent = ScimSchemas.JSONPATH_ENTERPRISE;
-        TestUtils.verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix);
-        TestUtils.verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix);
+        TestUtils.verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix, softAssert);
+        TestUtils.verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix, softAssert);
 
         // SailPoint extension — dynamically verified from expected properties
         String sp = ScimSchemas.JSONPATH_SAILPOINT;
@@ -312,7 +315,7 @@ public class IdentityTest extends BaseTest {
                     ? entry.getValue().split("\\s*,\\s*")[0]
                     : entry.getValue();
             String actual = response.jsonPath().getString(jsonPath);
-            Assert.assertEquals(actual, expectedValue.replace("{suffix}", suffix),
+            softAssert.assertEquals(actual, expectedValue.replace("{suffix}", suffix),
                     "Mismatch for sailpoint." + attrName + " on: " + identityKey);
         }
     }
