@@ -63,45 +63,26 @@ public class IdentityTest extends BaseTest {
             Assert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
 
             String p = "identity." + ctx.identityKey + ".expected.";
-            String ent = "'urn:ietf:params:scim:schemas:extension:enterprise:2.0:User'.";
 
             Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
             verifyStringAttr(response, p + "userName", "userName", suffix);
             verifyStringAttr(response, p + "givenName", "name.givenName", suffix);
             verifyStringAttr(response, p + "familyName", "name.familyName", suffix);
-            verifyStringAttr(response, p + "middleName", "name.middleName", suffix);
-            verifyStringAttr(response, p + "honorificPrefix", "name.honorificPrefix", suffix);
-            verifyStringAttr(response, p + "honorificSuffix", "name.honorificSuffix", suffix);
             verifyStringAttr(response, p + "displayName", "displayName", suffix);
-            verifyStringAttr(response, p + "email", "emails[0].value", suffix);
-            verifyStringAttr(response, p + "title", "title", suffix);
             verifyStringAttr(response, p + "userType", "userType", suffix);
-            verifyStringAttr(response, p + "preferredLanguage", "preferredLanguage", suffix);
-            verifyStringAttr(response, p + "timezone", "timezone", suffix);
-            verifyStringAttr(response, p + "locale", "locale", suffix);
-            verifyStringAttr(response, p + "nickName", "nickName", suffix);
-            verifyStringAttr(response, p + "externalId", "externalId", suffix);
-            verifyStringAttr(response, p + "profileUrl", "profileUrl", suffix);
+            verifyStringAttr(response, p + "email", "emails[0].value", suffix);
             verifyBooleanAttr(response, p + "active", "active");
 
-            // Enterprise extension
+            // Enterprise extension — manager
+            String ent = "'urn:ietf:params:scim:schemas:extension:enterprise:2.0:User'.";
             verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix);
-            verifyStringAttr(response, p + "employeeNumber", ent + "employeeNumber", suffix);
-            verifyStringAttr(response, p + "department", ent + "department", suffix);
-            verifyStringAttr(response, p + "costCenter", ent + "costCenter", suffix);
-            verifyStringAttr(response, p + "division", ent + "division", suffix);
-            verifyStringAttr(response, p + "organization", ent + "organization", suffix);
+            verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix);
 
-            // Phone number (single entry, optional)
-            verifyStringAttr(response, p + "phoneNumber", "phoneNumbers[0].value", suffix);
-            verifyStringAttr(response, p + "phoneNumberType", "phoneNumbers[0].type", suffix);
-
-            // Address (single entry, optional)
-            verifyStringAttr(response, p + "addressStreet", "addresses[0].streetAddress", suffix);
-            verifyStringAttr(response, p + "addressLocality", "addresses[0].locality", suffix);
-            verifyStringAttr(response, p + "addressRegion", "addresses[0].region", suffix);
-            verifyStringAttr(response, p + "addressPostalCode", "addresses[0].postalCode", suffix);
-            verifyStringAttr(response, p + "addressCountry", "addresses[0].country", suffix);
+            // SailPoint extension — IIQ-native equivalents
+            String sp = "'urn:ietf:params:scim:schemas:sailpoint:1.0:User'.";
+            verifyStringAttr(response, p + "jobtitle", sp + "jobtitle", suffix);
+            verifyStringAttr(response, p + "Department", sp + "Department", suffix);
+            verifyStringAttr(response, p + "location", sp + "location", suffix);
         }
     }
 
