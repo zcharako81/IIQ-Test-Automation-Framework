@@ -86,8 +86,8 @@ public class IdentityTest extends BaseTest {
 
             Assert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
             TestUtils.verifyStringAttr(response, p + "userName", "userName", suffix);
-            TestUtils.verifyStringAttr(response, p + "givenName", "name.givenName", suffix);
-            TestUtils.verifyStringAttr(response, p + "familyName", "name.familyName", suffix);
+            TestUtils.verifyStringAttr(response, p + "firstname", "name.givenName", suffix);
+            TestUtils.verifyStringAttr(response, p + "lastname", "name.familyName", suffix);
             TestUtils.verifyStringAttr(response, p + "displayName", "displayName", suffix);
             TestUtils.verifyStringAttr(response, p + "userType", "userType", suffix);
             TestUtils.verifyStringAttr(response, p + "email", "emails[0].value", suffix);

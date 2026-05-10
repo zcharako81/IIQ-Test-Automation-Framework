@@ -32,10 +32,10 @@ public class IdentityDataFactory {
         user.userType = props.getProperty(p + "userType");
         user.active = Boolean.parseBoolean(props.getProperty(p + "active"));
 
-        // Name sub-attributes
+        // Name sub-attributes (property keys use IIQ ObjectConfig names)
         Identity.Name name = new Identity.Name();
-        name.givenName = props.getProperty(p + "givenName");
-        name.familyName = props.getProperty(p + "familyName");
+        name.givenName = props.getProperty(p + "firstname");
+        name.familyName = props.getProperty(p + "lastname");
         user.name = name;
 
         // Email

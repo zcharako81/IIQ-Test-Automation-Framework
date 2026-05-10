@@ -100,8 +100,8 @@ identities=user1,user2
 
 # --- Identity: user1 ---
 identity.user1.input.userName=john.doe
-identity.user1.input.givenName=John
-identity.user1.input.familyName=Doe
+identity.user1.input.firstname=John
+identity.user1.input.lastname=Doe
 identity.user1.input.displayName=John Doe
 identity.user1.input.email=john.doe@acme.com
 identity.user1.input.userType=employee
@@ -112,8 +112,8 @@ identity.user1.input.Department=Engineering
 identity.user1.input.location=New York
 
 identity.user1.expected.userName=john.doe.{suffix}
-identity.user1.expected.givenName=John
-identity.user1.expected.familyName=Doe
+identity.user1.expected.firstname=John
+identity.user1.expected.lastname=Doe
 identity.user1.expected.email={suffix}.john.doe@acme.com
 identity.user1.expected.userType=employee
 identity.user1.expected.jobtitle=Software Engineer
