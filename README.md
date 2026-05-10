@@ -56,6 +56,7 @@ src/test/iiq
 - **Multi-identity mode**: Define identities via the `identities` key in `identity.properties`. Each identity gets its own set of input, expected, role, and account properties. Accounts are defined via `identity.<key>.accounts` (comma-separated for multiple accounts per identity).
 - **managerValue**: Must be replaced with a valid IIQ identity ID (the `id` field of an existing user, e.g. `spadmin`). Find the correct ID by querying `GET /scim/v2/Users?filter=userName eq "spadmin"` on your IIQ server and copying the `id` value. The same applies to `managerDisplayName` (set to the userName of the manager).
 - **{suffix} placeholder**: Appended to `userName`, `email`, and account attributes like `uid` and `cn` to ensure uniqueness per run (resolved from `System.currentTimeMillis()`).
+- **SailPoint extension (generic)**: Any SailPoint SCIM extension attribute can be added via the `sailpoint.` prefix in property keys. Input: `identity.<key>.input.sailpoint.<attrName>=<value>`. Expected: `identity.<key>.expected.sailpoint.<attrName>=<value>`. This dynamically builds the `urn:ietf:params:scim:schemas:sailpoint:1.0:User` map without touching Java code. Known array attributes (`capabilities`, `costcenter`) can be comma-separated and are automatically converted to JSON arrays. Optional attributes can be removed entirely — the framework skips them gracefully.
 - **Multiple roles**: Defined as comma-separated values in `identity.<key>.expected.roles`. For example: `identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE`.
 - **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `Testng.xml`).
 
@@ -107,19 +108,19 @@ identity.user1.input.displayName=John Doe
 identity.user1.input.email=john.doe@acme.com
 identity.user1.input.userType=employee
 identity.user1.input.active=true
-# SailPoint extension (IIQ-native SCIM equivalents)
-identity.user1.input.title=Software Engineer
-identity.user1.input.department=Engineering
-identity.user1.input.location=New York
+# SailPoint extension — any attribute via sailpoint. prefix (dynamically mapped)
+identity.user1.input.sailpoint.title=Software Engineer
+identity.user1.input.sailpoint.department=Engineering
+identity.user1.input.sailpoint.location=New York
 
 identity.user1.expected.userName=john.doe.{suffix}
 identity.user1.expected.firstname=John
 identity.user1.expected.lastname=Doe
 identity.user1.expected.email={suffix}.john.doe@acme.com
 identity.user1.expected.userType=employee
-identity.user1.expected.title=Software Engineer
-identity.user1.expected.department=Engineering
-identity.user1.expected.location=New York
+identity.user1.expected.sailpoint.title=Software Engineer
+identity.user1.expected.sailpoint.department=Engineering
+identity.user1.expected.sailpoint.location=New York
 # comma-separated for multiple roles
 identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE
 
@@ -134,6 +135,19 @@ identity.user1.account.ldap.expected.attributes.sn=Doe
 ```
 
 The `{suffix}` placeholder is automatically replaced at runtime with `System.currentTimeMillis()`, matching the unique suffix appended to identities during creation.
+
+### Attribute schema split — `.input.*` vs `.input.sailpoint.*`
+
+Attributes in `identity.properties` are split into two groups that map to **different SCIM JSON namespaces**:
+
+| Prefix | SCIM Schema | Java handling | Example |
+|---|---|---|---|
+| `.input.<attr>` (no `sailpoint.`) | `urn:ietf:params:scim:schemas:core:2.0:User` + `urn:ietf:params:scim:schemas:extension:enterprise:2.0:User` (manager) | **Compiled** — dedicated fields in the `Identity` POJO (`userName`, `name.givenName`, `name.familyName`, `displayName`, `userType`, `emails`, `active`, `manager`) | `identity.user1.input.firstname=John` |
+| `.input.sailpoint.<attr>` | `urn:ietf:params:scim:schemas:sailpoint:1.0:User` | **Generic** — stored as `Map<String, Object>`; discovered dynamically by property prefix. Adding a new attribute requires **zero Java code changes**. | `identity.user1.input.sailpoint.title=Software Engineer` |
+
+**Why two mechanisms?** Core SCIM 2.0 attributes (`userName`, `name`, `emails`) are well-defined standards that change infrequently — they benefit from compile-time safety with typed POJO fields. SailPoint extension attributes (`title`, `department`, `location`, `capabilities`, `costcenter`, etc.) are IIQ ObjectConfig fields specific to each deployment. The generic `sailpoint.` prefix lets you add any IIQ attribute without touching Java, keeping the framework deployment-agnostic. The same split applies to `.expected.*` / `.expected.sailpoint.*` for verification.
+
+**Optionality**: Any `.input.sailpoint.*` or `.expected.sailpoint.*` line can be removed entirely — the framework skips it gracefully during creation and verification.
 
 ### Account validation flow
 

@@ -118,11 +118,21 @@ public class IdentityTest extends BaseTest {
             TestUtils.verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix);
             TestUtils.verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix);
 
-            // SailPoint extension — IIQ-native equivalents
+            // SailPoint extension — dynamically verified from expected properties
             String sp = "'urn:ietf:params:scim:schemas:sailpoint:1.0:User'.";
-            TestUtils.verifyStringAttr(response, p + "title", sp + "title", suffix);
-            TestUtils.verifyStringAttr(response, p + "department", sp + "department", suffix);
-            TestUtils.verifyStringAttr(response, p + "location", sp + "location", suffix);
+            String spPrefix = "identity." + ctx.identityKey + ".expected.sailpoint.";
+            Map<String, String> spExpected = ConfigManager.getByPrefix(spPrefix);
+            for (Map.Entry<String, String> entry : spExpected.entrySet()) {
+                String attrName = entry.getKey();
+                boolean isArray = entry.getValue().contains(",");
+                String jsonPath = isArray ? sp + attrName + "[0]" : sp + attrName;
+                String expectedValue = isArray
+                        ? entry.getValue().split("\\s*,\\s*")[0]
+                        : entry.getValue();
+                String actual = response.jsonPath().getString(jsonPath);
+                Assert.assertEquals(actual, expectedValue.replace("{suffix}", suffix),
+                        "Mismatch for sailpoint." + attrName + " on: " + ctx.identityKey);
+            }
         }
     }
 

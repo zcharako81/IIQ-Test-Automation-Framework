@@ -1,8 +1,14 @@
 package factory;
 
 import java.io.InputStream;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+
 import model.Identity;
 
 public class IdentityDataFactory {
@@ -16,6 +22,9 @@ public class IdentityDataFactory {
             throw new RuntimeException("Failed to load identity properties", e);
         }
     }
+
+    private static final Set<String> SAILPOINT_ARRAY_ATTRS = new HashSet<>(
+            Arrays.asList("capabilities", "costcenter"));
 
     public static Identity createIdentity(String suffix, String identityKey) {
         Identity user = new Identity();
@@ -55,27 +64,27 @@ public class IdentityDataFactory {
             user.enterpriseExtension = ext;
         }
 
-        // SailPoint extension attributes (IIQ-native equivalents)
-        Identity.SailPointUser sp = null;
-        sp = setSpIfPresent(sp, props, p + "title", (e, v) -> e.title = v);
-        sp = setSpIfPresent(sp, props, p + "department", (e, v) -> e.department = v);
-        sp = setSpIfPresent(sp, props, p + "location", (e, v) -> e.location = v);
-        if (sp != null) {
-            user.sailPointUser = sp;
+        // SailPoint extension — dynamically built from properties
+        String spPrefix = p + "sailpoint.";
+        Map<String, Object> spMap = null;
+        for (String key : props.stringPropertyNames()) {
+            if (key.startsWith(spPrefix)) {
+                if (spMap == null) spMap = new LinkedHashMap<>();
+                String attrName = key.substring(spPrefix.length());
+                String value = props.getProperty(key);
+                if (value != null && !value.isEmpty()) {
+                    if (SAILPOINT_ARRAY_ATTRS.contains(attrName)) {
+                        spMap.put(attrName, Arrays.asList(value.split("\\s*,\\s*")));
+                    } else {
+                        spMap.put(attrName, value);
+                    }
+                }
+            }
+        }
+        if (spMap != null) {
+            user.sailPointUser = spMap;
         }
 
         return user;
-    }
-
-    private static Identity.SailPointUser setSpIfPresent(
-            Identity.SailPointUser sp, Properties props, String key,
-            java.util.function.BiConsumer<Identity.SailPointUser, String> setter) {
-        String value = props.getProperty(key);
-        if (value != null && !value.isEmpty()) {
-            Identity.SailPointUser s = sp != null ? sp : new Identity.SailPointUser();
-            setter.accept(s, value);
-            return s;
-        }
-        return sp;
     }
 }

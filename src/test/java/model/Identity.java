@@ -1,6 +1,7 @@
 package model;
 
 import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -17,7 +18,7 @@ public class Identity {
     public EnterpriseExtension enterpriseExtension;
 
     @JsonProperty("urn:ietf:params:scim:schemas:sailpoint:1.0:User")
-    public SailPointUser sailPointUser;
+    public Map<String, Object> sailPointUser;
 
     public static class Name {
         public String givenName;
@@ -36,11 +37,5 @@ public class Identity {
             public String value;
             public String displayName;
         }
-    }
-
-    public static class SailPointUser {
-        public String title;
-        public String department;
-        public String location;
     }
 }
