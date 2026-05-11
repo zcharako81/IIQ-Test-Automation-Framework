@@ -117,6 +117,9 @@ public class IdentityTest extends BaseTest {
                             doLaunchSingleAggregation(ctx, qualifier);  // single app
                         }
                         break;
+                    case "task":
+                        doExecuteTask(ctx, qualifier);
+                        break;
                     case "verifyCreate":
                         doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".expected.");
                         break;
@@ -154,11 +157,19 @@ public class IdentityTest extends BaseTest {
     // ── Phase methods (single IdentityContext) ──────────────────────────────
 
     private void doRefresh(IdentityContext ctx) {
-        String taskName = ConfigManager.get("task.refresh");
+        doExecuteTask(ctx, ConfigManager.get("task.refresh"));
+    }
+
+    /**
+     * Launches the My-WF-TaskLauncher workflow for the given task name,
+     * waits for completion, and asserts it finished with status Success.
+     * Used by the {@code task:<taskName>} phase and internally by {@code doRefresh}.
+     */
+    private void doExecuteTask(IdentityContext ctx, String taskName) {
         var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
         var response = workflowService.launchWorkflow(workflow);
         softAssert.assertEquals(response.statusCode(), 201,
-                "Workflow launch failed for: " + ctx.identityKey);
+                "Task launch failed for " + taskName + " on: " + ctx.identityKey);
         String workflowId = response.jsonPath().getString("id");
         softAssert.assertNotNull(workflowId);
         TestUtils.waitForWorkflowCompletion(workflowService, workflowId,
@@ -167,7 +178,7 @@ public class IdentityTest extends BaseTest {
         softAssert.assertEquals(
                 result.jsonPath().getString("completionStatus"),
                 "Success",
-                "Refresh workflow failed for: " + ctx.identityKey
+                "Task " + taskName + " failed for: " + ctx.identityKey
         );
     }
 
