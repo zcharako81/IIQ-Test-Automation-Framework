@@ -288,23 +288,36 @@ create → refresh → aggregation → verifyCreate → verifyRoles → verifyAc
 
 Each identity's phase list runs independently (per-identity mode). If `.tests` property is absent, the full default lifecycle above runs.
 
-**Qualified phases for multi-round modify** — `modify`, `verifyModify`, and `verifyAccounts` support an optional colon qualifier to target different property sections. This enables multiple modification rounds with different values:
+**Qualified phases** — Several phases accept an optional colon qualifier:
+
+| Phase | Qualifier | Purpose |
+|---|---|---|
+| `modify:<N>`, `verifyModify:<N>` | Numeric index (`1`, `2`, ...) | Multi-round modify — maps to `expectedAfterModify.<N>.*` |
+| `verifyAccounts:<N>` | Numeric index (`1`, `2`, ...) | Account re-verification per round — maps to `accounts.<N>` / `account.<N>.<type>.*` |
+| `aggregation:<appKey>` | Application key (e.g. `ldap`) | Single-app aggregation instead of all configured apps |
+| `task:<taskName>` | IIQ task name (e.g. `RefreshIdentitySingle`) | Run any IIQ task directly — no config property needed |
+
+```
+# Multi-round modify (2 rounds)
+identity.user1.tests=create,...,modify:1,verifyModify:1,verifyAccounts:1,\
+  modify:2,verifyModify:2,verifyAccounts:2,deleteAccounts,delete
+
+# Single-app aggregation
+identity.user1.tests=create,...,aggregation:ldap,verifyCreate,...
+
+# Arbitrary task
+identity.user1.tests=create,...,task:SomeCustomTask,verifyCreate,...
+```
+
+**Leaver / rehire scenario** — repeat `modify → verifyModify → verifyAccounts` to simulate attribute changes:
 
 ```
 identity.user1.tests=create,refresh,aggregation,verifyCreate,verifyRoles,\
-  verifyAccounts,modify:1,verifyModify:1,verifyAccounts:1,\
-  modify:2,verifyModify:2,verifyAccounts:2,deleteAccounts,delete
+  verifyAccounts,modify,verifyModify,verifyAccounts,\
+  modify,verifyModify,verifyAccounts,deleteAccounts,delete
 ```
 
-Each qualifier maps to an indexed property section. See [Multi-round modify + account verification](#multi-round-modify--account-verification) for the property naming convention.
-
-**Leaver / rehire scenario** — repeat `modify → verifyModify → verifyAccounts` to simulate attribute changes triggering downstream provisioning:
-
-```
-identity.user1.tests=create,refresh,aggregation,verifyCreate,verifyRoles,verifyAccounts,modify,verifyModify,verifyAccounts,deleteAccounts,delete
-```
-
-Any phase can be repeated any number of times. No Java changes needed.
+Any phase can be repeated any number of times. No Java changes needed. See [Multi-round modify + account verification](#multi-round-modify--account-verification) for the indexed property naming convention.
 
 ---
 
