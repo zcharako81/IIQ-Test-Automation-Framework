@@ -50,6 +50,24 @@ public class TestUtils {
         }, timeoutSeconds, pollMillis);
     }
 
+    /**
+     * Resolves the {suffix} placeholder in a property value.
+     * - When suffix is NOT empty: replaces all occurrences of {@code {suffix}} with the suffix value.
+     * - When suffix IS empty (no suffix configured): strips {@code .{suffix}}, {@code {suffix}.},
+     *   and bare {@code {suffix}} so that {@code john.doe.{suffix}} becomes {@code john.doe}.
+     */
+    public static String resolveSuffix(String value, String suffix) {
+        if (value == null || !value.contains("{suffix}")) return value;
+        if (suffix.isEmpty()) {
+            String result = value;
+            result = result.replace(".{suffix}", "");
+            result = result.replace("{suffix}.", "");
+            result = result.replace("{suffix}", "");
+            return result;
+        }
+        return value.replace("{suffix}", suffix);
+    }
+
     /** Read default timeout in seconds from {@code wait.timeout.seconds} in config.properties. */
     public static int waitTimeout() {
         return Integer.parseInt(ConfigManager.get("wait.timeout.seconds"));
@@ -79,8 +97,8 @@ public class TestUtils {
         String expected = ConfigManager.getOptional(propKey);
         if (expected == null) return;
         String actual = r.jsonPath().getString(jsonPath);
+        String resolved = resolveSuffix(expected, suffix);
         String message = "Mismatch: " + propKey;
-        String resolved = expected.replace("{suffix}", suffix);
         if (softAssert != null) {
             softAssert.assertEquals(actual, resolved, message);
         } else {

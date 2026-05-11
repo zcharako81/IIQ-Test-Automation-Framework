@@ -31,8 +31,14 @@ public class IdentityTest extends BaseTest {
     private SoftAssert softAssert;
 
     {
-        String configured = ConfigManager.getTestSuffix();
-        suffix = configured != null ? configured : "";
+        String raw = ConfigManager.getTestSuffix();
+        if (raw == null) {
+            suffix = "";                                     // not set → no suffix
+        } else if ("random".equalsIgnoreCase(raw.trim())) {
+            suffix = String.valueOf(System.currentTimeMillis());  // random → auto-generate
+        } else {
+            suffix = raw.trim();                             // fixed value
+        }
     }
 
     static class IdentityContext {
@@ -262,7 +268,7 @@ public class IdentityTest extends BaseTest {
                         ConfigManager.getAccountExpectedAttributes(ctx.identityKey, type, qualifier);
                 for (var entry : expectedAttrs.entrySet()) {
                     Object actual = acctAttrs.get(entry.getKey());
-                    String expected = entry.getValue().replace("{suffix}", suffix);
+                    String expected = TestUtils.resolveSuffix(entry.getValue(), suffix);
                     softAssert.assertEquals(
                             String.valueOf(actual),
                             expected,
@@ -349,7 +355,7 @@ public class IdentityTest extends BaseTest {
                     ? entry.getValue().split("\\s*,\\s*")[0]
                     : entry.getValue();
             String actual = response.jsonPath().getString(jsonPath);
-            softAssert.assertEquals(actual, expectedValue.replace("{suffix}", suffix),
+            softAssert.assertEquals(actual, TestUtils.resolveSuffix(expectedValue, suffix),
                     "Mismatch for sailpoint." + attrName + " on: " + identityKey);
         }
     }

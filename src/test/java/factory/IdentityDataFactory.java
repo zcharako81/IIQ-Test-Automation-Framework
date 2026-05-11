@@ -9,6 +9,7 @@ import java.util.Properties;
 
 import base.ScimSchemas;
 import model.Identity;
+import utils.TestUtils;
 
 public class IdentityDataFactory {
     private static Properties props = new Properties();
@@ -62,7 +63,7 @@ public class IdentityDataFactory {
         if (raw == null) {
             throw new RuntimeException("Missing identity." + identityKey + ".expected.userName");
         }
-        return raw.replace("{suffix}", suffix);
+        return TestUtils.resolveSuffix(raw, suffix);
     }
 
     /**
@@ -99,7 +100,7 @@ public class IdentityDataFactory {
         }
         user.userName = isCreate
                 ? (suffix.isEmpty() ? rawUserName : rawUserName + "." + suffix)
-                : rawUserName.replace("{suffix}", suffix);
+                : TestUtils.resolveSuffix(rawUserName, suffix);
 
         user.displayName = props.getProperty(p + "displayName");
         user.userType = props.getProperty(p + "userType");
@@ -117,7 +118,7 @@ public class IdentityDataFactory {
             Identity.Email email = new Identity.Email();
             email.value = isCreate
                     ? (suffix.isEmpty() ? rawEmail : suffix + "." + rawEmail)
-                    : rawEmail.replace("{suffix}", suffix);
+                    : TestUtils.resolveSuffix(rawEmail, suffix);
             email.primary = true;
             user.emails = List.of(email);
         }
@@ -147,7 +148,7 @@ public class IdentityDataFactory {
                     String cleanName = rawAttrName.substring(0, rawAttrName.length() - 2);
                     spMap.put(cleanName, Arrays.asList(value.split("\\s*,\\s*")));
                 } else if (value.contains("{suffix}")) {
-                    spMap.put(rawAttrName, value.replace("{suffix}", suffix));
+                    spMap.put(rawAttrName, TestUtils.resolveSuffix(value, suffix));
                 } else {
                     spMap.put(rawAttrName, value);
                 }

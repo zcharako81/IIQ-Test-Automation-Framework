@@ -56,9 +56,9 @@ src/test/iiq
 - **Prerequisite**: Workflow `My-WF-TaskLauncher` must be imported into IIQ before test execution.
 - **Task names**: Can be changed in `config.properties` (e.g. for Identity Refresh or Account Aggregation). The identity name is passed as a task filter to reduce execution time.
 - **Multi-identity mode**: Define identities via the `identities` key in `identity.properties`. Each identity gets its own set of input, expected, role, and account properties. Accounts are defined via `identity.<key>.accounts` (comma-separated for multiple accounts per identity).
-- **Optional create phase**: The `create` phase is no longer mandatory. If omitted from an identity's `.tests` list, the framework looks up the existing identity by `userName` using a SCIM filter query. To reference identities from a previous run, set `test.suffix` in `config.properties` to the suffix value used during that creation run. Without `test.suffix`, a new timestamp is generated each run.
+- **Optional create phase**: The `create` phase is no longer mandatory. If omitted from an identity's `.tests` list, the framework looks up the existing identity by `userName` using a SCIM filter query. To reference identities from a previous run, set `test.suffix` in `config.properties` to the suffix value used during that creation run. Without `test.suffix`, no suffix is applied — properties are used as-is.
 - **managerValue**: Must be replaced with a valid IIQ identity ID (the `id` field of an existing user, e.g. `spadmin`).
-- **{suffix} placeholder**: Appended to `userName`, `email`, and account attributes like `uid` and `cn` to ensure uniqueness per run. When `test.suffix` is set in `config.properties`, that value is used. When omitted, no suffix is applied — properties are used as-is.
+- **{suffix} placeholder**: Appended to `userName`, `email`, and account attributes like `uid` and `cn` to ensure uniqueness per run. Controlled by `test.suffix` in `config.properties`: `random` auto-generates a timestamp, a fixed value reuses a prior run's suffix, omitted uses values as-is.
 - **SailPoint extension (generic)**: Any SailPoint SCIM extension attribute can be added via the `sailpoint.` prefix in property keys. Input: `identity.<key>.input.sailpoint.<attrName>=<value>`. Expected: `identity.<key>.expected.sailpoint.<attrName>=<value>`. This dynamically builds the `urn:ietf:params:scim:schemas:sailpoint:1.0:User` map without touching Java code. For multi-value array attributes, append `[]` to the key name: `identity.<key>.input.sailpoint.capabilities[]=val1,val2,val3` — the value is split by comma and sent as a JSON array. Single-value attributes use no suffix. Optional attributes can be removed entirely — the framework skips them gracefully.
 - **Multiple roles**: Defined as comma-separated values in `identity.<key>.expected.roles`. For example: `identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE`.
 - **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `Testng.xml`).
@@ -96,8 +96,11 @@ wait.aggregation.poll.interval.ms=5000
 # --- Logging ---
 logging.enabled=false
 
-# --- Optional suffix (omit to use values as-is) ---
-# test.suffix=1712345678901
+# --- Optional suffix (uncomment for auto-generated or set a fixed value) ---
+#   random               → auto-generated from System.currentTimeMillis()
+#   1712345678901         → fixed value for cross-run reuse
+#   (commented out)       → no suffix, properties used as-is
+test.suffix=random
 ```
 
 ### Identity + Account test data (`identity.properties`)
