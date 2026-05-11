@@ -14,6 +14,8 @@ This framework supports end-to-end IAM testing including:
 * ✅ Verify Birthright Role assignments (multi-assignement)
 * ✅ Verify provisioned accounts (multi-application)
 * ✅ Multi-round modify — repeat modify/verify/accounts with different values
+
+This project is an independent test automation framework and is not affiliated with or endorsed by SailPoint Technologies. It contains no SailPoint code, libraries, JARs or binaries. 
 ---
 
 ## 🧱 Tech Stack
