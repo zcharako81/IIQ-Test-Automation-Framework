@@ -32,7 +32,7 @@ public class IdentityTest extends BaseTest {
 
     {
         String configured = ConfigManager.getTestSuffix();
-        suffix = configured != null ? configured : String.valueOf(System.currentTimeMillis());
+        suffix = configured != null ? configured : "";
     }
 
     static class IdentityContext {

@@ -58,7 +58,7 @@ src/test/iiq
 - **Multi-identity mode**: Define identities via the `identities` key in `identity.properties`. Each identity gets its own set of input, expected, role, and account properties. Accounts are defined via `identity.<key>.accounts` (comma-separated for multiple accounts per identity).
 - **Optional create phase**: The `create` phase is no longer mandatory. If omitted from an identity's `.tests` list, the framework looks up the existing identity by `userName` using a SCIM filter query. To reference identities from a previous run, set `test.suffix` in `config.properties` to the suffix value used during that creation run. Without `test.suffix`, a new timestamp is generated each run.
 - **managerValue**: Must be replaced with a valid IIQ identity ID (the `id` field of an existing user, e.g. `spadmin`).
-- **{suffix} placeholder**: Appended to `userName`, `email`, and account attributes like `uid` and `cn` to ensure uniqueness per run (resolved from `System.currentTimeMillis()`).
+- **{suffix} placeholder**: Appended to `userName`, `email`, and account attributes like `uid` and `cn` to ensure uniqueness per run. When `test.suffix` is set in `config.properties`, that value is used. When omitted, no suffix is applied — properties are used as-is.
 - **SailPoint extension (generic)**: Any SailPoint SCIM extension attribute can be added via the `sailpoint.` prefix in property keys. Input: `identity.<key>.input.sailpoint.<attrName>=<value>`. Expected: `identity.<key>.expected.sailpoint.<attrName>=<value>`. This dynamically builds the `urn:ietf:params:scim:schemas:sailpoint:1.0:User` map without touching Java code. For multi-value array attributes, append `[]` to the key name: `identity.<key>.input.sailpoint.capabilities[]=val1,val2,val3` — the value is split by comma and sent as a JSON array. Single-value attributes use no suffix. Optional attributes can be removed entirely — the framework skips them gracefully.
 - **Multiple roles**: Defined as comma-separated values in `identity.<key>.expected.roles`. For example: `identity.user1.expected.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE`.
 - **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `Testng.xml`).
@@ -96,7 +96,7 @@ wait.aggregation.poll.interval.ms=5000
 # --- Logging ---
 logging.enabled=false
 
-# --- Optional fixed suffix (omit to auto-generate) ---
+# --- Optional suffix (omit to use values as-is) ---
 # test.suffix=1712345678901
 ```
 
@@ -154,7 +154,7 @@ identity.user1.account.ldap.expected.attributes.sn=Doe
 # identity.user1.account.ad.expected.attributes.sAMAccountName=john.doe.{suffix}
 ```
 
-The `{suffix}` placeholder is automatically replaced at runtime with `System.currentTimeMillis()`, matching the unique suffix appended to identities during creation.
+The `{suffix}` placeholder is automatically replaced at runtime with the configured `test.suffix` value (or removed if empty), matching the suffix appended to identities during creation.
 
 ### Attribute schema split — `.input.*` vs `.input.sailpoint.*`
 
@@ -189,7 +189,7 @@ verifyAccounts → modify → verifyModify → deleteAccounts
 - **`.modify.*`** — Partial attribute set documented in `identity.properties`. Not read by Java directly (the PUT uses `.expectedAfterModify.*` as the full representation), but kept for documentation of what changed.
 - **`.expectedAfterModify.*`** — Full expected state after modification. Read by `IdentityDataFactory.createIdentityForModify()` and verified by `verifyIdentity()`.
 
-The same schema split applies: `.expectedAfterModify.*` for core/enterprise, `.expectedAfterModify.sailpoint.*` for the SailPoint extension. The `{suffix}` placeholder is supported the same way as `.expected.*`.
+The same schema split applies: `.expectedAfterModify.*` for core/enterprise, `.expectedAfterModify.sailpoint.*` for the SailPoint extension. The `{suffix}` placeholder is supported the same way as `.expected.*`. When no `test.suffix` is configured, `{suffix}` is replaced with an empty string — adjust your properties accordingly.
 
 Example:
 ```

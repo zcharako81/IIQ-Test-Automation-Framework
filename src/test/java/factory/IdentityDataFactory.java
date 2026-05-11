@@ -94,8 +94,11 @@ public class IdentityDataFactory {
 
         // userName
         String rawUserName = props.getProperty(p + "userName");
+        if (rawUserName == null) {
+            throw new RuntimeException("Missing property: " + p + "userName");
+        }
         user.userName = isCreate
-                ? rawUserName + "." + suffix
+                ? (suffix.isEmpty() ? rawUserName : rawUserName + "." + suffix)
                 : rawUserName.replace("{suffix}", suffix);
 
         user.displayName = props.getProperty(p + "displayName");
@@ -110,12 +113,14 @@ public class IdentityDataFactory {
 
         // Email
         String rawEmail = props.getProperty(p + "email");
-        Identity.Email email = new Identity.Email();
-        email.value = isCreate
-                ? suffix + "." + rawEmail
-                : rawEmail.replace("{suffix}", suffix);
-        email.primary = true;
-        user.emails = List.of(email);
+        if (rawEmail != null && !rawEmail.isEmpty()) {
+            Identity.Email email = new Identity.Email();
+            email.value = isCreate
+                    ? (suffix.isEmpty() ? rawEmail : suffix + "." + rawEmail)
+                    : rawEmail.replace("{suffix}", suffix);
+            email.primary = true;
+            user.emails = List.of(email);
+        }
 
         // Enterprise extension (manager only)
         String mgrVal = props.getProperty(p + "managerValue");
