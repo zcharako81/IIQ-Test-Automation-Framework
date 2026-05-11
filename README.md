@@ -56,6 +56,7 @@ src/test/iiq
 - **Prerequisite**: Workflow `My-WF-TaskLauncher` must be imported into IIQ before test execution.
 - **Task names**: Can be changed in `config.properties` (e.g. for Identity Refresh or Account Aggregation). The identity name is passed as a task filter to reduce execution time.
 - **Multi-identity mode**: Define identities via the `identities` key in `identity.properties`. Each identity gets its own set of input, expected, role, and account properties. Accounts are defined via `identity.<key>.accounts` (comma-separated for multiple accounts per identity).
+- **Optional create phase**: The `create` phase is no longer mandatory. If omitted from an identity's `.tests` list, the framework looks up the existing identity by `userName` using a SCIM filter query. To reference identities from a previous run, set `test.suffix` in `config.properties` to the suffix value used during that creation run. Without `test.suffix`, a new timestamp is generated each run.
 - **managerValue**: Must be replaced with a valid IIQ identity ID (the `id` field of an existing user, e.g. `spadmin`).
 - **{suffix} placeholder**: Appended to `userName`, `email`, and account attributes like `uid` and `cn` to ensure uniqueness per run (resolved from `System.currentTimeMillis()`).
 - **SailPoint extension (generic)**: Any SailPoint SCIM extension attribute can be added via the `sailpoint.` prefix in property keys. Input: `identity.<key>.input.sailpoint.<attrName>=<value>`. Expected: `identity.<key>.expected.sailpoint.<attrName>=<value>`. This dynamically builds the `urn:ietf:params:scim:schemas:sailpoint:1.0:User` map without touching Java code. For multi-value array attributes, append `[]` to the key name: `identity.<key>.input.sailpoint.capabilities[]=val1,val2,val3` — the value is split by comma and sent as a JSON array. Single-value attributes use no suffix. Optional attributes can be removed entirely — the framework skips them gracefully.
@@ -94,6 +95,9 @@ wait.aggregation.poll.interval.ms=5000
 
 # --- Logging ---
 logging.enabled=false
+
+# --- Optional fixed suffix (omit to auto-generate) ---
+# test.suffix=1712345678901
 ```
 
 ### Identity + Account test data (`identity.properties`)
@@ -104,6 +108,10 @@ Each identity key (`user1`, `user2`, etc.) has its own block covering input, exp
 # List of identity keys for multi-identity mode (required)
 identities=user1,user2
 
+# Optional per-identity phase selection (absent = run all phases).
+# Omit 'create' to reference an identity from a prior creation run:
+#   identity.user3.tests=refresh,verifyCreate,delete
+#
 # --- Identity: user1 ---
 identity.user1.input.userName=john.doe
 identity.user1.input.firstname=John

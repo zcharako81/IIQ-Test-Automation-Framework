@@ -53,6 +53,28 @@ public class IdentityDataFactory {
     }
 
     /**
+     * Resolves the expected userName for an identity from .expected.userName properties.
+     * Replaces {suffix} with the given suffix value and returns the result.
+     * Used when looking up an existing identity (create phase absent).
+     */
+    public static String getExpectedUserName(String suffix, String identityKey) {
+        String raw = props.getProperty("identity." + identityKey + ".expected.userName");
+        if (raw == null) {
+            throw new RuntimeException("Missing identity." + identityKey + ".expected.userName");
+        }
+        return raw.replace("{suffix}", suffix);
+    }
+
+    /**
+     * Creates an Identity POJO from .expected.* properties (post-creation expected state).
+     * Used when the create phase is absent and an existing identity is looked up.
+     * Suffix is resolved via {suffix} placeholder.
+     */
+    public static Identity createIdentityFromExpected(String suffix, String identityKey) {
+        return buildIdentity(suffix, identityKey, "expected", false);
+    }
+
+    /**
      * Internal builder shared by createIdentity and createIdentityForModify.
      * @param suffix       the unique timestamp suffix
      * @param identityKey  the identity key (e.g. "user1")

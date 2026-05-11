@@ -234,4 +234,14 @@ public class ConfigManager {
     public static String getAggregationTaskName(String appKey) {
         return get("task.aggregation." + appKey);
     }
+
+    /**
+     * Returns an optional fixed suffix from config.properties (test.suffix).
+     * When set, overrides System.currentTimeMillis() so identities from a
+     * previous creation run can be looked up (when the create phase is absent).
+     * Returns null if not configured.
+     */
+    public static String getTestSuffix() {
+        return getOptional("test.suffix");
+    }
 }

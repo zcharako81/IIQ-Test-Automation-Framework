@@ -27,8 +27,13 @@ public class IdentityTest extends BaseTest {
     private final IdentityService service = new IdentityService();
     private final WorkflowService workflowService = new WorkflowService();
     private final Map<String, IdentityContext> identities = new LinkedHashMap<>();
-    private final String suffix = String.valueOf(System.currentTimeMillis());
+    private final String suffix;
     private SoftAssert softAssert;
+
+    {
+        String configured = ConfigManager.getTestSuffix();
+        suffix = configured != null ? configured : String.valueOf(System.currentTimeMillis());
+    }
 
     static class IdentityContext {
         String userId;
@@ -41,22 +46,42 @@ public class IdentityTest extends BaseTest {
         softAssert = new SoftAssert();
         Reporter.log("=== Starting identity lifecycle (suffix: " + suffix + ") ===");
 
-        // ── Phase 0: Create all identities (mandatory) ──────────────────────
+        // ── Phase 0: Initialize IdentityContexts (create or resolve per key) ──
         List<String> keys = ConfigManager.getIdentityKeys();
         softAssert.assertFalse(keys.isEmpty(), "No identity keys configured via 'identities' property");
         for (String key : keys) {
-            Reporter.log(">>> Creating identity: " + key);
-            Identity user = IdentityDataFactory.createIdentity(suffix, key);
-            var response = service.createUser(user);
-            softAssert.assertEquals(response.statusCode(), 201, "Create failed for identity: " + key);
-            String userId = response.jsonPath().getString("id");
-            softAssert.assertNotNull(userId, "User ID must not be null for: " + key);
             IdentityContext ctx = new IdentityContext();
-            ctx.userId = userId;
-            ctx.identity = user;
             ctx.identityKey = key;
+            List<String> phases = ConfigManager.getIdentityTests(key);
+            if (phases.contains("create")) {
+                // Create the identity via SCIM POST
+                Reporter.log(">>> Creating identity: " + key);
+                Identity user = IdentityDataFactory.createIdentity(suffix, key);
+                var response = service.createUser(user);
+                softAssert.assertEquals(response.statusCode(), 201, "Create failed for identity: " + key);
+                ctx.userId = response.jsonPath().getString("id");
+                softAssert.assertNotNull(ctx.userId, "User ID must not be null for: " + key);
+                ctx.identity = user;
+                Reporter.log("<<< Created identity: " + key + " -> id=" + ctx.userId);
+            } else {
+                // Look up existing identity by userName (from expected properties)
+                String expectedUserName = IdentityDataFactory.getExpectedUserName(suffix, key);
+                Reporter.log(">>> Resolving existing identity: " + key + " (userName=" + expectedUserName + ")");
+                var response = service.findUserByUserName(expectedUserName);
+                if (response.statusCode() == 200) {
+                    List<Map<String, Object>> resources = response.jsonPath().getList("Resources");
+                    if (resources != null && !resources.isEmpty()) {
+                        Map<String, Object> user = resources.get(0);
+                        ctx.userId = (String) user.get("id");
+                    }
+                }
+                softAssert.assertNotNull(ctx.userId,
+                        "Could not resolve identity: " + key + " via userName: " + expectedUserName
+                                + " (status=" + response.statusCode() + ")");
+                ctx.identity = IdentityDataFactory.createIdentityFromExpected(suffix, key);
+                Reporter.log("<<< Resolved identity: " + key + " -> id=" + ctx.userId);
+            }
             identities.put(key, ctx);
-            Reporter.log("<<< Created identity: " + key + " -> id=" + userId);
         }
 
         // ── Per-identity ordered lifecycle ──────────────────────────────────
@@ -75,7 +100,7 @@ public class IdentityTest extends BaseTest {
                 Reporter.log("  Phase: " + phase + (qualifier.isEmpty() ? "" : " (qualifier='" + qualifier + "')"));
                 switch (phaseName) {
                     case "create":
-                        break; // already done above
+                        break; // already handled during initialization
                     case "refresh":
                         doRefresh(ctx);
                         break;

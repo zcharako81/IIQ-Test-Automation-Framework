@@ -1,5 +1,8 @@
 package services;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 import base.ApiClient;
 import base.ConfigManager;
 import base.ScimSchemas;
@@ -34,6 +37,17 @@ public class IdentityService {
         String baseUrl = ConfigManager.get("base.url");
         String path = refUrl.substring(refUrl.indexOf(baseUrl) + baseUrl.length());
         return ApiClient.get(path);
+    }
+
+    /**
+     * Finds a SCIM user by userName using the SCIM filter query.
+     * GET /Users?filter=userName eq "&lt;userName&gt;"
+     * Returns the full ListResponse. The caller should extract Resources[0] if found.
+     */
+    public Response findUserByUserName(String userName) {
+        String filter = "userName eq \"" + userName + "\"";
+        String encodedFilter = URLEncoder.encode(filter, StandardCharsets.UTF_8);
+        return ApiClient.get(ENDPOINT + "?filter=" + encodedFilter);
     }
 
     public Response patchUser(String id, Object patchBody) {
