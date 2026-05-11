@@ -111,7 +111,11 @@ public class IdentityTest extends BaseTest {
                         doRefresh(ctx);
                         break;
                     case "aggregation":
-                        doLaunchAggregations(ctx);
+                        if (qualifier.isEmpty()) {
+                            doLaunchAggregations(ctx);       // run all app aggregations
+                        } else {
+                            doLaunchSingleAggregation(ctx, qualifier);  // single app
+                        }
                         break;
                     case "verifyCreate":
                         doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".expected.");
@@ -188,6 +192,26 @@ public class IdentityTest extends BaseTest {
                             + " identity: " + ctx.identityKey
             );
         }
+    }
+
+    private void doLaunchSingleAggregation(IdentityContext ctx, String appKey) {
+        String taskName = ConfigManager.getAggregationTaskName(appKey);
+        var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
+        var response = workflowService.launchWorkflow(workflow);
+        softAssert.assertEquals(response.statusCode(), 201,
+                "Aggregation launch failed for app: " + appKey
+                        + " identity: " + ctx.identityKey);
+        String workflowId = response.jsonPath().getString("id");
+        softAssert.assertNotNull(workflowId);
+        TestUtils.waitForWorkflowCompletion(workflowService, workflowId,
+                TestUtils.waitTimeout(), TestUtils.aggregationPoll());
+        var result = workflowService.getWorkflow(workflowId);
+        softAssert.assertEquals(
+                result.jsonPath().getString("completionStatus"),
+                "Success",
+                "Aggregation workflow failed for app: " + appKey
+                        + " identity: " + ctx.identityKey
+        );
     }
 
     private void doVerifyIdentity(IdentityContext ctx, String expectedPrefix) {
