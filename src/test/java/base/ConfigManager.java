@@ -116,8 +116,25 @@ public class ConfigManager {
         return getList("identity." + identityKey + ".expected.roles");
     }
 
+    /**
+     * Returns the account types for an identity (no qualifier — backward compatible).
+     * Reads from {@code identity.<key>.accounts}.
+     */
     public static List<String> getAccountTypes(String identityKey) {
-        String value = getOptional("identity." + identityKey + ".accounts");
+        return getAccountTypes(identityKey, "");
+    }
+
+    /**
+     * Returns the account types for an identity, optionally qualified.
+     * No qualifier: reads from {@code identity.<key>.accounts}.
+     * With qualifier: reads from {@code identity.<key>.accounts.<qualifier>}.
+     * Example: qualifier="1" → {@code identity.user1.accounts.1}
+     */
+    public static List<String> getAccountTypes(String identityKey, String qualifier) {
+        String propKey = qualifier.isEmpty()
+                ? "identity." + identityKey + ".accounts"
+                : "identity." + identityKey + ".accounts." + qualifier;
+        String value = getOptional(propKey);
         if (value == null || value.trim().isEmpty()) {
             return List.of();
         }
@@ -126,15 +143,65 @@ public class ConfigManager {
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
     }
-    
+
+    /**
+     * Returns expected account attributes for an identity+type (no qualifier — backward compatible).
+     * Reads from {@code identity.<key>.account.<type>.expected.attributes.} prefix.
+     */
     public static Map<String, String> getAccountExpectedAttributes(String identityKey, String type) {
-        return getByPrefix("identity." + identityKey + ".account." + type + ".expected.attributes.");
+        return getAccountExpectedAttributes(identityKey, type, "");
     }
+
+    /**
+     * Returns expected account attributes for an identity+type, optionally qualified.
+     * No qualifier: prefix is {@code identity.<key>.account.<type>.expected.attributes.}.
+     * With qualifier: prefix is {@code identity.<key>.account.<qualifier>.<type>.expected.attributes.}.
+     */
+    public static Map<String, String> getAccountExpectedAttributes(String identityKey, String type, String qualifier) {
+        String prefix = qualifier.isEmpty()
+                ? "identity." + identityKey + ".account." + type + ".expected.attributes."
+                : "identity." + identityKey + ".account." + qualifier + "." + type + ".expected.attributes.";
+        return getByPrefix(prefix);
+    }
+
+    /**
+     * Returns the application name for an account type (no qualifier — backward compatible).
+     * Reads from {@code identity.<key>.account.<type>.application}.
+     */
     public static String getAccountApplication(String identityKey, String type) {
-        return get("identity." + identityKey + ".account." + type + ".application");
+        return getAccountApplication(identityKey, type, "");
     }
+
+    /**
+     * Returns the application name for an account type, optionally qualified.
+     * No qualifier: reads from {@code identity.<key>.account.<type>.application}.
+     * With qualifier: reads from {@code identity.<key>.account.<qualifier>.<type>.application}.
+     */
+    public static String getAccountApplication(String identityKey, String type, String qualifier) {
+        String propKey = qualifier.isEmpty()
+                ? "identity." + identityKey + ".account." + type + ".application"
+                : "identity." + identityKey + ".account." + qualifier + "." + type + ".application";
+        return get(propKey);
+    }
+
+    /**
+     * Returns the exists flag for an account type (no qualifier — backward compatible).
+     * Reads from {@code identity.<key>.account.<type>.expected.exists}.
+     */
     public static String getAccountExists(String identityKey, String type) {
-        String value = getOptional("identity." + identityKey + ".account." + type + ".expected.exists");
+        return getAccountExists(identityKey, type, "");
+    }
+
+    /**
+     * Returns the exists flag for an account type, optionally qualified.
+     * No qualifier: reads from {@code identity.<key>.account.<type>.expected.exists}.
+     * With qualifier: reads from {@code identity.<key>.account.<qualifier>.<type>.expected.exists}.
+     */
+    public static String getAccountExists(String identityKey, String type, String qualifier) {
+        String propKey = qualifier.isEmpty()
+                ? "identity." + identityKey + ".account." + type + ".expected.exists"
+                : "identity." + identityKey + ".account." + qualifier + "." + type + ".expected.exists";
+        String value = getOptional(propKey);
         return value != null ? value : "false";
     }
     public static Map<String, String> getByPrefix(String prefix) {

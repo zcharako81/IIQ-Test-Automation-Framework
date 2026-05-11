@@ -13,6 +13,7 @@ This framework supports end-to-end IAM testing including:
 * ✅ Verify Identity attributes
 * ✅ Verify Birthright Role assignments (multi-assignement)
 * ✅ Verify provisioned accounts (multi-application)
+* ✅ Multi-round modify — repeat modify/verify/accounts with different values
 ---
 
 ## 🧱 Tech Stack
@@ -83,11 +84,16 @@ workflow.name=My-WF-TaskLauncher
 task.refresh=RefreshIdentitySingle
 # Application aggregation tasks — one per app key used in identity.properties
 task.aggregation.ldap=LdapAccountAggregation
+task.aggregation.ad=AdAccountAggregation
+task.aggregation.scim=ScimAccountAggregration
 
 # --- Wait timeouts (read by TestUtils helpers) ---
 wait.timeout.seconds=60
 wait.poll.interval.ms=2000
 wait.aggregation.poll.interval.ms=5000
+
+# --- Logging ---
+logging.enabled=false
 ```
 
 ### Identity + Account test data (`identity.properties`)
@@ -173,7 +179,7 @@ verifyAccounts → modify → verifyModify → deleteAccounts
 ```
 
 - **`.modify.*`** — Partial attribute set documented in `identity.properties`. Not read by Java directly (the PUT uses `.expectedAfterModify.*` as the full representation), but kept for documentation of what changed.
-- **`.expectedAfterModify.*`** — Full expected state after modification. Read by `IdentityDataFactory.createIdentityForModify()` and verified by `doVerifyModifiedIdentity()`.
+- **`.expectedAfterModify.*`** — Full expected state after modification. Read by `IdentityDataFactory.createIdentityForModify()` and verified by `verifyIdentity()`.
 
 The same schema split applies: `.expectedAfterModify.*` for core/enterprise, `.expectedAfterModify.sailpoint.*` for the SailPoint extension. The `{suffix}` placeholder is supported the same way as `.expected.*`.
 
@@ -188,6 +194,40 @@ identity.user1.expectedAfterModify.displayName=John Doe PATCHED
 identity.user1.expectedAfterModify.sailpoint.title=Senior Software Engineer
 identity.user1.expectedAfterModify.sailpoint.Identity_End_Date=2029-12-31
 ```
+
+### Multi-round modify + account verification
+
+Phases `modify`, `verifyModify`, and `verifyAccounts` support an **optional qualifier** (colon separator) to run multiple modification rounds with different values. The qualifier maps to indexed property sections:
+
+```
+# Phase list with 2 modify rounds, each followed by account re-verification
+identity.user1.tests=create,...,modify:1,verifyModify:1,verifyAccounts:1,\
+  modify:2,verifyModify:2,verifyAccounts:2,deleteAccounts,delete
+
+# Round 1 — lastname → Smith
+identity.user1.expectedAfterModify.1.lastname=Smith
+identity.user1.expectedAfterModify.1.displayName=John Smith
+# ...
+identity.user1.accounts.1=ldap
+identity.user1.account.1.ldap.expected.attributes.sn=Smith
+
+# Round 2 — lastname → Jones
+identity.user1.expectedAfterModify.2.lastname=Jones
+identity.user1.expectedAfterModify.2.displayName=John Jones
+# ...
+identity.user1.accounts.2=ldap
+identity.user1.account.2.ldap.expected.attributes.sn=Jones
+```
+
+**Property section mapping:**
+
+| Phase | Property prefix (no qualifier) | Property prefix (qualifier `N`) |
+|---|---|---|
+| `modify` | `identity.<key>.expectedAfterModify.*` | `identity.<key>.expectedAfterModify.N.*` |
+| `verifyModify` | `identity.<key>.expectedAfterModify.*` | `identity.<key>.expectedAfterModify.N.*` |
+| `verifyAccounts` | `identity.<key>.accounts`, `identity.<key>.account.<type>.*` | `identity.<key>.accounts.N`, `identity.<key>.account.N.<type>.*` |
+
+Unqualified `modify`/`verifyModify`/`verifyAccounts` remain fully backward compatible.
 
 ---
 
@@ -236,6 +276,16 @@ create → refresh → aggregation → verifyCreate → verifyRoles → verifyAc
 ```
 
 Each identity's phase list runs independently (per-identity mode). If `.tests` property is absent, the full default lifecycle above runs.
+
+**Qualified phases for multi-round modify** — `modify`, `verifyModify`, and `verifyAccounts` support an optional colon qualifier to target different property sections. This enables multiple modification rounds with different values:
+
+```
+identity.user1.tests=create,refresh,aggregation,verifyCreate,verifyRoles,\
+  verifyAccounts,modify:1,verifyModify:1,verifyAccounts:1,\
+  modify:2,verifyModify:2,verifyAccounts:2,deleteAccounts,delete
+```
+
+Each qualifier maps to an indexed property section. See [Multi-round modify + account verification](#multi-round-modify--account-verification) for the property naming convention.
 
 **Leaver / rehire scenario** — repeat `modify → verifyModify → verifyAccounts` to simulate attribute changes triggering downstream provisioning:
 

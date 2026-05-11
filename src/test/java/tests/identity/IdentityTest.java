@@ -64,8 +64,16 @@ public class IdentityTest extends BaseTest {
             List<String> phases = ConfigManager.getIdentityTests(ctx.identityKey);
             Reporter.log("=== Identity: " + ctx.identityKey + " (" + phases.size() + " phases) ===");
             for (String phase : phases) {
-                Reporter.log("  Phase: " + phase);
-                switch (phase) {
+                // Parse optional qualifier: "modify:1" → name="modify", qualifier="1"
+                String phaseName = phase;
+                String qualifier = "";
+                int colonIdx = phase.indexOf(':');
+                if (colonIdx >= 0) {
+                    phaseName = phase.substring(0, colonIdx);
+                    qualifier = phase.substring(colonIdx + 1);
+                }
+                Reporter.log("  Phase: " + phase + (qualifier.isEmpty() ? "" : " (qualifier='" + qualifier + "')"));
+                switch (phaseName) {
                     case "create":
                         break; // already done above
                     case "refresh":
@@ -81,13 +89,14 @@ public class IdentityTest extends BaseTest {
                         doVerifyRoles(ctx);
                         break;
                     case "verifyAccounts":
-                        doVerifyAccounts(ctx);
+                        doVerifyAccounts(ctx, qualifier);
                         break;
                     case "modify":
-                        doModifyIdentity(ctx);
+                        doModifyIdentity(ctx, qualifier);
                         break;
                     case "verifyModify":
-                        doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".expectedAfterModify.");
+                        doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".expectedAfterModify."
+                                + (qualifier.isEmpty() ? "" : qualifier + "."));
                         break;
                     case "deleteAccounts":
                         doDeleteAccounts(ctx);
@@ -184,7 +193,7 @@ public class IdentityTest extends BaseTest {
     }
 
     @SuppressWarnings("unchecked")
-    private void doVerifyAccounts(IdentityContext ctx) {
+    private void doVerifyAccounts(IdentityContext ctx, String qualifier) {
         var response = service.getUserAccounts(ctx.userId);
         softAssert.assertEquals(response.statusCode(), 200,
                 "Accounts fetch failed for: " + ctx.identityKey);
@@ -201,8 +210,8 @@ public class IdentityTest extends BaseTest {
                     "Failed to fetch full account details from: " + refUrl);
             accounts.add(acctResponse.jsonPath().getMap(""));
         }
-        for (String type : ConfigManager.getAccountTypes(ctx.identityKey)) {
-            String expectedApp = ConfigManager.getAccountApplication(ctx.identityKey, type);
+        for (String type : ConfigManager.getAccountTypes(ctx.identityKey, qualifier)) {
+            String expectedApp = ConfigManager.getAccountApplication(ctx.identityKey, type, qualifier);
             Map<String, Object> account = accounts.stream()
                     .filter(acc -> {
                         Map<String, Object> app =
@@ -215,7 +224,7 @@ public class IdentityTest extends BaseTest {
                     .findFirst()
                     .orElse(null);
             boolean shouldExist = Boolean.parseBoolean(
-                    ConfigManager.getAccountExists(ctx.identityKey, type));
+                    ConfigManager.getAccountExists(ctx.identityKey, type, qualifier));
             if (shouldExist) {
                 softAssert.assertNotNull(account,
                         "Account missing for type: " + type + " on identity: " + ctx.identityKey);
@@ -225,7 +234,7 @@ public class IdentityTest extends BaseTest {
                 softAssert.assertNotNull(acctAttrs, "No schema attributes found for " + type
                         + " on identity: " + ctx.identityKey);
                 Map<String, String> expectedAttrs =
-                        ConfigManager.getAccountExpectedAttributes(ctx.identityKey, type);
+                        ConfigManager.getAccountExpectedAttributes(ctx.identityKey, type, qualifier);
                 for (var entry : expectedAttrs.entrySet()) {
                     Object actual = acctAttrs.get(entry.getKey());
                     String expected = entry.getValue().replace("{suffix}", suffix);
@@ -243,13 +252,13 @@ public class IdentityTest extends BaseTest {
         }
     }
 
-    private void doModifyIdentity(IdentityContext ctx) {
-        Identity identity = IdentityDataFactory.createIdentityForModify(suffix, ctx.identityKey);
+    private void doModifyIdentity(IdentityContext ctx, String qualifier) {
+        Identity identity = IdentityDataFactory.createIdentityForModify(suffix, ctx.identityKey, qualifier);
         identity.id = ctx.userId;
         var response = service.putUser(ctx.userId, identity);
         softAssert.assertTrue(
                 response.statusCode() == 200 || response.statusCode() == 204,
-                "PUT failed for " + ctx.identityKey + ": " + response.statusCode());
+                "PUT failed for " + ctx.identityKey + " (qualifier='" + qualifier + "'): " + response.statusCode());
     }
 
     private void doDeleteAccounts(IdentityContext ctx) {

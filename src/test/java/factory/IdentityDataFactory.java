@@ -33,9 +33,23 @@ public class IdentityDataFactory {
     /**
      * Creates an Identity POJO from .expectedAfterModify.* properties for SCIM PUT (modify).
      * Suffix is resolved via {suffix} placeholder — .expectedAfterModify.* values DO contain {suffix}.
+     * This is the backward-compatible variant — no qualifier, uses bare expectedAfterModify section.
      */
     public static Identity createIdentityForModify(String suffix, String identityKey) {
-        return buildIdentity(suffix, identityKey, "expectedAfterModify", false);
+        return createIdentityForModify(suffix, identityKey, "");
+    }
+
+    /**
+     * Creates an Identity POJO from .expectedAfterModify[.<qualifier>].* properties for SCIM PUT (modify).
+     * When qualifier is empty, reads from the bare expectedAfterModify section (backward compatible).
+     * When qualifier is non-empty, reads from expectedAfterModify.<qualifier>. section.
+     * Example: qualifier="1" → section="expectedAfterModify.1"
+     */
+    public static Identity createIdentityForModify(String suffix, String identityKey, String qualifier) {
+        String section = qualifier.isEmpty()
+                ? "expectedAfterModify"
+                : "expectedAfterModify." + qualifier;
+        return buildIdentity(suffix, identityKey, section, false);
     }
 
     /**
