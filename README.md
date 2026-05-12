@@ -57,6 +57,8 @@ src/test/iiq
 ## 👉 Instructions
 
 - **Prerequisite**: Workflow `My-WF-TaskLauncher` must be imported into IIQ before test execution.
+- **All tests are defined in `identity.properties`**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, and account attributes — is configured in a single properties file. No Java code changes are needed to define or modify test cases.
+- **Define your test scenario**: Start by listing your test identities under the `identities` key. For each identity, provide input attributes, expected values, expected roles, and account validations. Everything is driven by property conventions documented below.
 - **Phase list**: Define the identity lifecycle via `identity.<key>.tests` in `identity.properties`. All tasks are launched via the unified `task:<taskName>` phase (e.g. `task:RefreshIdentitySingle`, `task:LdapAccountAggregation`). The identity name is passed automatically as a workflow filter.
 - **Multi-identity mode**: Define identities via the `identities` key in `identity.properties`. Each identity gets its own set of input, expected, role, and account properties.
 - **Optional create phase**: If omitted, the framework looks up the identity by `userName` using a SCIM filter query (must already exist in IIQ).
