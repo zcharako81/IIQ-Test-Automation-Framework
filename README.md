@@ -72,7 +72,7 @@ All configuration is driven by two properties files loaded in order (later wins 
 
 | File | Purpose |
 |---|---|
-| `config.properties` | IIQ URL, auth, workflow/task names, timeouts, logging, aggregation task mappings |
+| `config.properties` | IIQ URL, auth, workflow/task names, timeouts, logging |
 | `identity.properties` | Identity input + expected attributes, roles, and **per-identity account validation** |
 
 ### Global config (`config.properties`)
@@ -84,17 +84,11 @@ username=REPLACE_ME
 password=REPLACE_ME
 
 workflow.name=My-WF-TaskLauncher
-
 task.refresh=RefreshIdentitySingle
-# Application aggregation tasks — one per app key used in identity.properties
-task.aggregation.ldap=LdapAccountAggregation
-task.aggregation.ad=AdAccountAggregation
-task.aggregation.scim=ScimAccountAggregration
 
 # --- Wait timeouts (read by TestUtils helpers) ---
 wait.timeout.seconds=60
 wait.poll.interval.ms=2000
-wait.aggregation.poll.interval.ms=5000
 
 # --- Logging ---
 logging.enabled=false
@@ -286,7 +280,7 @@ mvn test -DsuiteXmlFile=Testng.xml
 The single `@Test` method `testLifecycle()` runs a per-identity ordered phase list read from `identity.<key>.tests` in `identity.properties`. Phases execute in the order listed; duplicates allowed for repeatable scenarios. Default lifecycle order:
 
 ```
-create → refresh → aggregation → verifyCreate → verifyRoles → verifyAccounts → modify → verifyModify → deleteAccounts → delete
+create → refresh → verifyCreate → verifyRoles → verifyAccounts → modify → verifyModify → deleteAccounts → delete
 ```
 
 Each identity's phase list runs independently (per-identity mode). If `.tests` property is absent, the full default lifecycle above runs.
@@ -297,7 +291,6 @@ Each identity's phase list runs independently (per-identity mode). If `.tests` p
 |---|---|---|
 | `modify:<N>`, `verifyModify:<N>` | Numeric index (`1`, `2`, ...) | Multi-round modify — maps to `expectedAfterModify.<N>.*` |
 | `verifyAccounts:<N>` | Numeric index (`1`, `2`, ...) | Account re-verification per round — maps to `accounts.<N>` / `account.<N>.<type>.*` |
-| `aggregation:<appKey>` | Application key (e.g. `ldap`) | Single-app aggregation instead of all configured apps |
 | `task:<taskName>` | IIQ task name (e.g. `RefreshIdentitySingle`) | Run any IIQ task directly — no config property needed |
 
 ```
@@ -305,17 +298,18 @@ Each identity's phase list runs independently (per-identity mode). If `.tests` p
 identity.user1.tests=create,...,modify:1,verifyModify:1,verifyAccounts:1,\
   modify:2,verifyModify:2,verifyAccounts:2,deleteAccounts,delete
 
-# Single-app aggregation
-identity.user1.tests=create,...,aggregation:ldap,verifyCreate,...
-
 # Arbitrary task
 identity.user1.tests=create,...,task:SomeCustomTask,verifyCreate,...
+
+# Account aggregation
+identity.user1.tests=create,refresh,task:LdapAccountAggregation,\
+  task:LdapAccountGroupAggregation,verifyCreate,...
 ```
 
 **Leaver / rehire scenario** — repeat `modify → verifyModify → verifyAccounts` to simulate attribute changes:
 
 ```
-identity.user1.tests=create,refresh,aggregation,verifyCreate,verifyRoles,\
+identity.user1.tests=create,refresh,verifyCreate,verifyRoles,\
   verifyAccounts,modify,verifyModify,verifyAccounts,\
   modify,verifyModify,verifyAccounts,deleteAccounts,delete
 ```

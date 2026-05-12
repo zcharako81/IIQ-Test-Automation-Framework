@@ -78,11 +78,6 @@ public class TestUtils {
         return Integer.parseInt(ConfigManager.get("wait.poll.interval.ms"));
     }
 
-    /** Read aggregation poll interval in ms from {@code wait.aggregation.poll.interval.ms}. */
-    public static int aggregationPoll() {
-        return Integer.parseInt(ConfigManager.get("wait.aggregation.poll.interval.ms"));
-    }
-
     /** Asserts a string attribute only if the property key exists. Skips silently if missing. */
     public static void verifyStringAttr(Response r, String propKey, String jsonPath, String suffix) {
         verifyStringAttr(r, propKey, jsonPath, suffix, null);
