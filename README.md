@@ -5,17 +5,16 @@ It can be executed standalone or integrated into a DevOps pipeline.
 
 This framework supports end-to-end IAM testing including:
 
-* ✅ Create identities / Modify identities / Delete identities
-* ✅ Multi-identity lifecycle — test multiple identities in one run
-* ✅ Multi-value attribute support
-* ✅ Launch Workflows
-* ✅ Launch Tasks
-* ✅ Verify Identity attributes
-* ✅ Verify Birthright Role assignments (multi-assignement)
-* ✅ Verify provisioned accounts (multi-application)
-* ✅ Multi-round modify — repeat modify/verify/accounts with different values
+* ✅ Identity CRUD — create, read, update, delete
+* ✅ Task execution — any IIQ task via task:<taskName>
+* ✅ Birthright roles — verify role assignments
+* ✅ Account provisioning — verify accounts per application
+* ✅ Multi-round modify — multiple modification rounds
+* ✅ Multi-identity — simultaneous lifecycle for many identities
+* ✅ Dynamic attributes — any sailpoint.* property, zero Java changes
+* ✅ 100% config-driven — no code changes needed for test scenarios
 
-This project is an independent test automation framework and is not affiliated with or endorsed by SailPoint Technologies. It contains no SailPoint code, libraries, JARs or binaries. 
+Disclaimer: This project is an independent test automation framework and is not affiliated with or endorsed by SailPoint Technologies. It contains no SailPoint code, libraries, JARs or binaries. 
 
 ---
 
