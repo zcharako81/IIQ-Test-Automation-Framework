@@ -91,7 +91,7 @@ public class ConfigManager {
      * Default ordered lifecycle phases (backward compatible with old dependsOnMethods chain).
      */
     private static final List<String> DEFAULT_PHASES = List.of(
-            "create", "refresh", "verifyCreate", "verifyRoles",
+            "create", "verifyCreate", "verifyRoles",
             "verifyAccounts", "modify", "verifyModify", "deleteAccounts", "delete"
     );
 
@@ -99,7 +99,7 @@ public class ConfigManager {
      * Returns the ordered list of test phases to execute for a given identity key.
      * If the property is absent or empty, returns the default lifecycle order.
      * Duplicates are preserved, allowing phases to repeat.
-     * Example: identity.user1.tests=create,refresh,verifyCreate,modify,verifyModify,verifyAccounts,delete
+     * Example: identity.user1.tests=create,task:RefreshIdentitySingle,verifyCreate,modify,verifyModify,verifyAccounts,delete
      */
     public static List<String> getIdentityTests(String identityKey) {
         String value = getOptional("identity." + identityKey + ".tests");

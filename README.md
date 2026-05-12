@@ -84,7 +84,6 @@ username=REPLACE_ME
 password=REPLACE_ME
 
 workflow.name=My-WF-TaskLauncher
-task.refresh=RefreshIdentitySingle
 
 # --- Wait timeouts (read by TestUtils helpers) ---
 wait.timeout.seconds=60
@@ -110,7 +109,7 @@ identities=user1,user2
 
 # Optional per-identity phase selection (absent = run all phases).
 # Omit 'create' to reference an identity from a prior creation run:
-#   identity.user3.tests=refresh,verifyCreate,delete
+#   identity.user3.tests=create,task:RefreshIdentitySingle,verifyCreate,delete
 #
 # --- Identity: user1 ---
 identity.user1.input.userName=john.doe
@@ -280,7 +279,7 @@ mvn test -DsuiteXmlFile=Testng.xml
 The single `@Test` method `testLifecycle()` runs a per-identity ordered phase list read from `identity.<key>.tests` in `identity.properties`. Phases execute in the order listed; duplicates allowed for repeatable scenarios. Default lifecycle order:
 
 ```
-create → refresh → verifyCreate → verifyRoles → verifyAccounts → modify → verifyModify → deleteAccounts → delete
+create → verifyCreate → verifyRoles → verifyAccounts → modify → verifyModify → deleteAccounts → delete
 ```
 
 Each identity's phase list runs independently (per-identity mode). If `.tests` property is absent, the full default lifecycle above runs.
@@ -302,14 +301,14 @@ identity.user1.tests=create,...,modify:1,verifyModify:1,verifyAccounts:1,\
 identity.user1.tests=create,...,task:SomeCustomTask,verifyCreate,...
 
 # Account aggregation
-identity.user1.tests=create,refresh,task:LdapAccountAggregation,\
+identity.user1.tests=create,task:RefreshIdentitySingle,task:LdapAccountAggregation,\
   task:LdapAccountGroupAggregation,verifyCreate,...
 ```
 
 **Leaver / rehire scenario** — repeat `modify → verifyModify → verifyAccounts` to simulate attribute changes:
 
 ```
-identity.user1.tests=create,refresh,verifyCreate,verifyRoles,\
+identity.user1.tests=create,task:RefreshIdentitySingle,verifyCreate,verifyRoles,\
   verifyAccounts,modify,verifyModify,verifyAccounts,\
   modify,verifyModify,verifyAccounts,deleteAccounts,delete
 ```

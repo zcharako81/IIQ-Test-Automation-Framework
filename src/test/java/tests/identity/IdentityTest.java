@@ -107,9 +107,6 @@ public class IdentityTest extends BaseTest {
                 switch (phaseName) {
                     case "create":
                         break; // already handled during initialization
-                    case "refresh":
-                        doRefresh(ctx);
-                        break;
                     case "task":
                         doExecuteTask(ctx, qualifier);
                         break;
@@ -149,14 +146,10 @@ public class IdentityTest extends BaseTest {
 
     // ── Phase methods (single IdentityContext) ──────────────────────────────
 
-    private void doRefresh(IdentityContext ctx) {
-        doExecuteTask(ctx, ConfigManager.get("task.refresh"));
-    }
-
     /**
      * Launches the My-WF-TaskLauncher workflow for the given task name,
      * waits for completion, and asserts it finished with status Success.
-     * Used by the {@code task:<taskName>} phase and internally by {@code doRefresh}.
+     * Used by the {@code task:<taskName>} phase.
      */
     private void doExecuteTask(IdentityContext ctx, String taskName) {
         var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
