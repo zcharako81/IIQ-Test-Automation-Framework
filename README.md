@@ -48,8 +48,8 @@ src/test/java
 │
 src/test/resources
 ├── config.properties    # Global test config (URL, auth, timeouts, data source)
-├── identity.properties  # Identity test data (properties format, SCIM PUT)
-├── identity.json        # Identity test data (JSON format, supports SCIM PATCH)
+├── identity.properties  # Identity test data (legacy)
+├── identity.json        # Identity test data )
 │
 src/test/iiq
 │
@@ -292,19 +292,6 @@ When `identity.data.source=json` is set in `config.properties`, test data is loa
 | Modify data | Uses SCIM PUT — full snapshot required | Supports SCIM PATCH — only changed attributes needed |
 | Round qualifier | `identity.<key>.expectedModify.1.*` | `"expectedModify": { "1": { ... } }` |
 | Unqualified modify | `identity.<key>.expectedModify.*` | `"expectedModify": { "": { ... } }` |
-
-#### JSON section map
-
-| `identity.json` key | Corresponds to properties prefix |
-|---|---|
-| `identities.<key>.tests` | `identity.<key>.tests` |
-| `identities.<key>.create` | `identity.<key>.create.*` (input) |
-| `identities.<key>.expectedCreate` | `identity.<key>.expectedCreate.*` (verification) |
-| `identities.<key>.expectedCreate.roles` | `identity.<key>.expectedCreate.roles` |
-| `identities.<key>.expectedCreate.accounts.<type>` | `identity.<key>.account.<type>.*` |
-| `identities.<key>.modify."<qual>"` | modify section (SCIM PATCH payload) |
-| `identities.<key>.expectedModify."<qual>"` | `identity.<key>.expectedModify.<qual>.*` |
-| `identities.<key>.expectedModify."<qual>".accounts.<type>` | `identity.<key>.account.<qual>.<type>.*` |
 
 #### SCIM schema mapping
 
