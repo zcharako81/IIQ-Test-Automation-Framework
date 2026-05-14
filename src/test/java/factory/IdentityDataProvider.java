@@ -201,14 +201,21 @@ public class IdentityDataProvider {
 
     /**
      * Returns the account type list for an identity, optionally qualified.
+     * <p>
+     * In JSON mode, reads the accounts map from the resolved section
+     * ({@code expectedCreate} for empty qualifier, {@code expectedModify} otherwise).
+     * In properties mode, reads the comma-separated list from {@code identity.properties}.
+     *
      * @param identityKey the identity key
      * @param qualifier   empty string for base accounts, or "1", "2" for per-round accounts
      */
-    /**
-     * Returns account type list for properties source.
-     * JSON source handles accounts directly via {@link IdentitySection#getAccounts()}.
-     */
     public static List<String> getAccountTypes(String identityKey, String qualifier) {
+        if (useJson) {
+            String section = qualifierToSection(qualifier);
+            IdentitySection sec = getExpectedSection(identityKey, section, qualifier);
+            if (sec == null || sec.getAccounts() == null) return List.of();
+            return new ArrayList<>(sec.getAccounts().keySet());
+        }
         String propKey = (qualifier == null || qualifier.isEmpty())
                 ? "identity." + identityKey + ".accounts"
                 : "identity." + identityKey + ".accounts." + qualifier;
@@ -227,10 +234,16 @@ public class IdentityDataProvider {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Returns account application for properties source.
-     * JSON source handles accounts directly via {@link IdentitySection#getAccounts()}.
+     * Returns the expected application display name for an account type.
+     * <p>
+     * In JSON mode, reads from the {@link AccountEntry#getApplication()}.
+     * In properties mode, reads from {@code identity.properties}.
      */
     public static String getAccountApplication(String identityKey, String type, String qualifier) {
+        if (useJson) {
+            AccountEntry entry = getAccountEntry(identityKey, type, qualifier);
+            return entry != null ? entry.getApplication() : null;
+        }
         String propKey = (qualifier == null || qualifier.isEmpty())
                 ? "identity." + identityKey + ".account." + type + ".application"
                 : "identity." + identityKey + ".account." + qualifier + "." + type + ".application";
@@ -242,10 +255,17 @@ public class IdentityDataProvider {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Returns account exists flag for properties source.
-     * JSON source handles accounts directly via {@link IdentitySection#getAccounts()}.
+     * Returns whether an account is expected to exist for a given type.
+     * <p>
+     * In JSON mode, reads from {@link AccountExpected#isExists()}.
+     * In properties mode, reads from {@code identity.properties}.
      */
     public static String getAccountExists(String identityKey, String type, String qualifier) {
+        if (useJson) {
+            AccountEntry entry = getAccountEntry(identityKey, type, qualifier);
+            if (entry == null || entry.getExpected() == null) return "false";
+            return String.valueOf(entry.getExpected().isExists());
+        }
         String propKey = (qualifier == null || qualifier.isEmpty())
                 ? "identity." + identityKey + ".account." + type + ".expected.exists"
                 : "identity." + identityKey + ".account." + qualifier + "." + type + ".expected.exists";
@@ -258,14 +278,48 @@ public class IdentityDataProvider {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Returns account expected attributes for properties source.
-     * JSON source handles accounts directly via {@link IdentitySection#getAccounts()}.
+     * Returns expected attributes for an account type.
+     * <p>
+     * In JSON mode, reads from {@link AccountExpected#getAttributes()}.
+     * In properties mode, reads from {@code identity.properties} via prefix scan.
      */
     public static Map<String, String> getAccountExpectedAttributes(String identityKey, String type, String qualifier) {
+        if (useJson) {
+            AccountEntry entry = getAccountEntry(identityKey, type, qualifier);
+            if (entry == null || entry.getExpected() == null || entry.getExpected().getAttributes() == null) {
+                return Map.of();
+            }
+            return entry.getExpected().getAttributes();
+        }
         String prefix = (qualifier == null || qualifier.isEmpty())
                 ? "identity." + identityKey + ".account." + type + ".expected.attributes."
                 : "identity." + identityKey + ".account." + qualifier + "." + type + ".expected.attributes.";
         return getByPrefixFromProps(prefix);
+    }
+
+    // ── Account helper (JSON mode) ──────────────────────────────────────
+
+    /**
+     * Resolves the {@link AccountEntry} for a given identity, account type,
+     * and qualifier from the JSON data set.
+     * <p>
+     * Qualifier mapping:
+     * <ul>
+     *   <li>{@code ""} (empty) → reads from {@code expectedCreate.accounts.<type>}</li>
+     *   <li>{@code "1"}, {@code "2"} etc. → reads from {@code expectedModify.<qual>.accounts.<type>}</li>
+     * </ul>
+     */
+    private static AccountEntry getAccountEntry(String identityKey, String type, String qualifier) {
+        if (!useJson) return null;
+        String section = qualifierToSection(qualifier);
+        IdentitySection sec = getExpectedSection(identityKey, section, qualifier);
+        if (sec == null || sec.getAccounts() == null) return null;
+        return sec.getAccounts().get(type);
+    }
+
+    /** Maps qualifier to JSON section name: empty → expectedCreate, non-empty → expectedModify. */
+    private static String qualifierToSection(String qualifier) {
+        return (qualifier == null || qualifier.isEmpty()) ? "expectedCreate" : "expectedModify";
     }
 
     // ─────────────────────────────────────────────────────────────────────

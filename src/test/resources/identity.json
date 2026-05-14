@@ -4,7 +4,12 @@
       "tests": [
         "create",
         "task:RefreshIdentitySingle",
-        "task:LdapAccountAggregation"
+        "task:LdapAccountAggregation",
+		"verifyCreate",
+		"modify:1",
+		"verifyModify:1",
+		"deleteAccounts", 
+        "delete"
 		  ],
       "create": {
         "userName": "john.doe",
@@ -23,17 +28,17 @@
           "Identity_End_Date": "2027-12-31",
           "capabilities": [
             "Auditor",
-            "Role Administrator"
+            "RoleAdministrator"
           ]
         }
       },
       "expectedCreate": {
         "userName": "john.doe.{suffix}",
         "firstname": "John",
-        "lastname": "Doe",
+        "lastname": "Doef",
         "displayName": "John Doe",
         "email": "{suffix}.john.doe@acme.com",
-        "userType": "employee",
+        "userType": "employeeE",
         "managerValue": "ac10c6819cc4176a819cc468045e00fe",
         "managerDisplayName": "The Administrator",
         "active": true,
@@ -44,7 +49,7 @@
           "Identity_End_Date": "2027-12-31",
           "capabilities": [
             "Auditor",
-            "Role Administrator"
+            "RoleAdministrator"
           ]
         },
         "roles": [
@@ -103,7 +108,7 @@
             "Identity_End_Date": "2029-12-31",
             "capabilities": [
               "Auditor",
-              "Rule Administrator"
+              "RuleAdministrator"
             ]
           }
         }
@@ -126,7 +131,7 @@
             "Identity_End_Date": "2029-12-31",
             "capabilities": [
               "Auditor",
-              "Rule Administrator"
+              "RuleAdministrator"
             ]
           },
           "accounts": {

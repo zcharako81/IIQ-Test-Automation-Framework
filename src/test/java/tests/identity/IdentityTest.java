@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.testng.Reporter;
+import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 import org.testng.asserts.SoftAssert;
 
@@ -19,9 +20,12 @@ import base.ConfigManager;
 import io.restassured.response.Response;
 import model.Identity;
 import factory.IdentityDataFactory;
+import factory.IdentityDataProvider;
+import factory.IdentityDataSet.IdentitySection;
 import factory.LaunchedWorkflowDataFactory;
 import utils.TestUtils;
 
+@Listeners(reporting.IdentityPhaseReporter.class)
 public class IdentityTest extends BaseTest {
 
     private final IdentityService service = new IdentityService();
@@ -105,8 +109,9 @@ public class IdentityTest extends BaseTest {
                     phaseName = phase.substring(0, colonIdx);
                     qualifier = phase.substring(colonIdx + 1);
                 }
-                long phaseStart = System.currentTimeMillis();
                 String phaseLabel = phase + (qualifier.isEmpty() ? "" : " (qualifier='" + qualifier + "')");
+                Reporter.log("  Phase: " + phaseLabel);
+                long phaseStart = System.currentTimeMillis();
                 switch (phaseName) {
                     case "create":
                         break; // already handled during initialization
@@ -175,8 +180,15 @@ public class IdentityTest extends BaseTest {
         Response response = service.getUser(ctx.userId);
         softAssert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
         softAssert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
-        int attrCount = verifyIdentity(response, ctx.identityKey, expectedPrefix);
-        Reporter.log("  [verifyIdentity] Attributes checked: " + attrCount);
+        // Resolve JSON section for attribute verification
+        IdentitySection jsonSection = null;
+        if (IdentityDataProvider.isJsonSource()) {
+            String sectionName = (qualifier == null || qualifier.isEmpty())
+                    ? "expectedCreate" : "expectedModify";
+            jsonSection = IdentityDataProvider.getExpectedSection(
+                    ctx.identityKey, sectionName, qualifier);
+        }
+        verifyIdentity(response, ctx.identityKey, expectedPrefix, jsonSection);
 
         // Consolidated role verification — roles are read from expectedCreate (no qualifier)
         List<String> expectedRoles = ConfigManager.getIdentityExpectedRoles(ctx.identityKey);
@@ -213,7 +225,12 @@ public class IdentityTest extends BaseTest {
         for (String role : expectedRoles) {
             if (actualRoles.contains(role)) matched++;
         }
+        // Summary BEFORE per-role details
         Reporter.log("  [verifyRoles] Expected: " + expectedRoles + " matched " + matched + "/" + expectedRoles.size());
+        for (String role : expectedRoles) {
+            boolean ok = actualRoles.contains(role);
+            Reporter.log("    [role] " + role + (ok ? " ✓" : " ✗"));
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -259,18 +276,19 @@ public class IdentityTest extends BaseTest {
                         + " on identity: " + ctx.identityKey);
                 Map<String, String> expectedAttrs =
                         ConfigManager.getAccountExpectedAttributes(ctx.identityKey, type, qualifier);
-                int attrCount = 0;
+                // Summary BEFORE per-attribute details
+                int attrCount = expectedAttrs.size();
+                Reporter.log("  [verifyAccounts] App: " + expectedApp + " (" + attrCount + " attrs)");
                 for (var entry : expectedAttrs.entrySet()) {
-                    Object actual = acctAttrs.get(entry.getKey());
+                    String actual = String.valueOf(acctAttrs.get(entry.getKey()));
                     String expected = TestUtils.resolveSuffix(entry.getValue(), suffix);
                     softAssert.assertEquals(
-                            String.valueOf(actual),
+                            actual,
                             expected,
                             "Mismatch in " + type + " for attribute: " + entry.getKey()
                                     + " on identity: " + ctx.identityKey);
-                    attrCount++;
+                    Reporter.log("    [acct:" + type + "] " + entry.getKey() + " → " + actual);
                 }
-                Reporter.log("  [verifyAccounts] App: " + expectedApp + " (" + attrCount + " attrs)");
             } else {
                 softAssert.assertNull(account,
                         "Account should NOT exist for type: " + type
@@ -319,44 +337,98 @@ public class IdentityTest extends BaseTest {
     // ── Shared helpers ─────────────────────────────────────────────────────
 
     /**
-     * Verifies identity attributes from a SCIM GET response against properties
-     * under the given expectedPrefix (e.g. "identity.user1.expected." or
-     * "identity.user1.expectedAfterModify.").
+     * Verifies identity attributes from a SCIM GET response.
+     * <p>
+     * In JSON mode (when {@code jsonSection} is non-null), reads expected values
+     * from the {@link IdentitySection} POJO fields (supports {@code {suffix}}).
+     * In properties mode, reads from config properties under {@code expectedPrefix}.
      *
      * @return the number of attributes that were validated
      */
-    private int verifyIdentity(Response response, String identityKey, String expectedPrefix) {
+    private int verifyIdentity(Response response, String identityKey,
+                               String expectedPrefix, IdentitySection jsonSection) {
+        if (jsonSection != null) {
+            return verifyIdentityFromJson(response, identityKey, jsonSection);
+        }
+        return verifyIdentityFromProperties(response, identityKey, expectedPrefix);
+    }
+
+    /**
+     * Properties-mode attribute verification.
+     * Reads expected values from {@link ConfigManager} under the given prefix.
+     */
+    private int verifyIdentityFromProperties(Response response, String identityKey,
+                                             String expectedPrefix) {
         String p = expectedPrefix;
-        int count = 0;
-
-        // Core SCIM attributes
-        if (ConfigManager.getOptional(p + "userName") != null) { count++; }
-        TestUtils.verifyStringAttr(response, p + "userName", "userName", suffix, softAssert);
-        if (ConfigManager.getOptional(p + "firstname") != null) { count++; }
-        TestUtils.verifyStringAttr(response, p + "firstname", "name.givenName", suffix, softAssert);
-        if (ConfigManager.getOptional(p + "lastname") != null) { count++; }
-        TestUtils.verifyStringAttr(response, p + "lastname", "name.familyName", suffix, softAssert);
-        if (ConfigManager.getOptional(p + "displayName") != null) { count++; }
-        TestUtils.verifyStringAttr(response, p + "displayName", "displayName", suffix, softAssert);
-        if (ConfigManager.getOptional(p + "userType") != null) { count++; }
-        TestUtils.verifyStringAttr(response, p + "userType", "userType", suffix, softAssert);
-        if (ConfigManager.getOptional(p + "email") != null) { count++; }
-        TestUtils.verifyStringAttr(response, p + "email", "emails[0].value", suffix, softAssert);
-        if (ConfigManager.getOptional(p + "active") != null) { count++; }
-        TestUtils.verifyBooleanAttr(response, p + "active", "active", softAssert);
-
-        // Enterprise extension — manager
         String ent = ScimSchemas.JSONPATH_ENTERPRISE;
-        if (ConfigManager.getOptional(p + "managerValue") != null) { count++; }
-        TestUtils.verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix, softAssert);
-        if (ConfigManager.getOptional(p + "managerDisplayName") != null) { count++; }
-        TestUtils.verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix, softAssert);
-
-        // SailPoint extension — dynamically verified from expected properties
         String sp = ScimSchemas.JSONPATH_SAILPOINT;
+
+        // ── Pre-count expected attributes ────────────────────────────────
+        int count = 0;
+        String[] coreKeys = {"userName", "firstname", "lastname", "displayName",
+                "userType", "email", "active"};
+        for (String key : coreKeys) {
+            if (ConfigManager.getOptional(p + key) != null) count++;
+        }
+        if (ConfigManager.getOptional(p + "managerValue") != null) count++;
+        if (ConfigManager.getOptional(p + "managerDisplayName") != null) count++;
         String spPrefix = p + "sailpoint.";
         Map<String, String> spExpected = ConfigManager.getByPrefix(spPrefix);
         count += spExpected.size();
+
+        // ── Log summary FIRST (before sub-details) ───────────────────────
+        Reporter.log("  [verifyIdentity] Attributes checked: " + count);
+
+        // ── Core SCIM attributes ─────────────────────────────────────────
+        if (ConfigManager.getOptional(p + "userName") != null) {
+            String actual = response.jsonPath().getString("userName");
+            Reporter.log("    [attr] userName → " + actual);
+        }
+        TestUtils.verifyStringAttr(response, p + "userName", "userName", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "firstname") != null) {
+            String actual = response.jsonPath().getString("name.givenName");
+            Reporter.log("    [attr] firstname → " + actual);
+        }
+        TestUtils.verifyStringAttr(response, p + "firstname", "name.givenName", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "lastname") != null) {
+            String actual = response.jsonPath().getString("name.familyName");
+            Reporter.log("    [attr] lastname → " + actual);
+        }
+        TestUtils.verifyStringAttr(response, p + "lastname", "name.familyName", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "displayName") != null) {
+            String actual = response.jsonPath().getString("displayName");
+            Reporter.log("    [attr] displayName → " + actual);
+        }
+        TestUtils.verifyStringAttr(response, p + "displayName", "displayName", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "userType") != null) {
+            String actual = response.jsonPath().getString("userType");
+            Reporter.log("    [attr] userType → " + actual);
+        }
+        TestUtils.verifyStringAttr(response, p + "userType", "userType", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "email") != null) {
+            String actual = response.jsonPath().getString("emails[0].value");
+            Reporter.log("    [attr] email → " + actual);
+        }
+        TestUtils.verifyStringAttr(response, p + "email", "emails[0].value", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "active") != null) {
+            String actual = String.valueOf(response.jsonPath().getBoolean("active"));
+            Reporter.log("    [attr] active → " + actual);
+        }
+        TestUtils.verifyBooleanAttr(response, p + "active", "active", softAssert);
+
+        // ── Enterprise extension — manager ───────────────────────────────
+        if (ConfigManager.getOptional(p + "managerValue") != null) {
+            String actual = response.jsonPath().getString(ent + "manager.value");
+            Reporter.log("    [attr] managerValue → " + actual);
+        }
+        TestUtils.verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "managerDisplayName") != null) {
+            String actual = response.jsonPath().getString(ent + "manager.displayName");
+            Reporter.log("    [attr] managerDisplayName → " + actual);
+        }
+        TestUtils.verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix, softAssert);
+
+        // ── SailPoint extension ──────────────────────────────────────────
         for (Map.Entry<String, String> entry : spExpected.entrySet()) {
             String rawAttrName = entry.getKey();
             boolean isArray = rawAttrName.endsWith("[]");
@@ -368,7 +440,135 @@ public class IdentityTest extends BaseTest {
             String actual = response.jsonPath().getString(jsonPath);
             softAssert.assertEquals(actual, TestUtils.resolveSuffix(expectedValue, suffix),
                     "Mismatch for sailpoint." + attrName + " on: " + identityKey);
+            Reporter.log("    [attr] sailpoint." + attrName + " → " + actual);
         }
+        return count;
+    }
+
+    /**
+     * JSON-mode attribute verification.
+     * Reads expected values from the {@link IdentitySection} POJO fields.
+     * Supports {@code {suffix}} placeholders in expected values.
+     */
+    private int verifyIdentityFromJson(Response response, String identityKey,
+                                       IdentitySection section) {
+        String ent = ScimSchemas.JSONPATH_ENTERPRISE;
+        String sp = ScimSchemas.JSONPATH_SAILPOINT;
+
+        // ── Pre-count expected attributes ────────────────────────────────
+        int count = 0;
+        if (section.getUserName() != null) count++;
+        if (section.getFirstname() != null) count++;
+        if (section.getLastname() != null) count++;
+        if (section.getDisplayName() != null) count++;
+        if (section.getUserType() != null) count++;
+        if (section.getEmail() != null) count++;
+        if (section.getActive() != null) count++;
+        if (section.getManagerValue() != null) count++;
+        if (section.getManagerDisplayName() != null) count++;
+        Map<String, Object> spAttrs = section.getSailpoint();
+        if (spAttrs != null) count += spAttrs.size();
+
+        // ── Log summary FIRST (before sub-details) ───────────────────────
+        Reporter.log("  [verifyIdentity] Attributes checked: " + count);
+
+        // ── Core SCIM attributes ─────────────────────────────────────────
+        if (section.getUserName() != null) {
+            String actual = response.jsonPath().getString("userName");
+            String expected = TestUtils.resolveSuffix(section.getUserName(), suffix);
+            softAssert.assertEquals(actual, expected,
+                    "Mismatch: userName on: " + identityKey);
+            Reporter.log("    [attr] userName → " + actual);
+        }
+        if (section.getFirstname() != null) {
+            String actual = response.jsonPath().getString("name.givenName");
+            String expected = TestUtils.resolveSuffix(section.getFirstname(), suffix);
+            softAssert.assertEquals(actual, expected,
+                    "Mismatch: firstname on: " + identityKey);
+            Reporter.log("    [attr] firstname → " + actual);
+        }
+        if (section.getLastname() != null) {
+            String actual = response.jsonPath().getString("name.familyName");
+            String expected = TestUtils.resolveSuffix(section.getLastname(), suffix);
+            softAssert.assertEquals(actual, expected,
+                    "Mismatch: lastname on: " + identityKey);
+            Reporter.log("    [attr] lastname → " + actual);
+        }
+        if (section.getDisplayName() != null) {
+            String actual = response.jsonPath().getString("displayName");
+            String expected = TestUtils.resolveSuffix(section.getDisplayName(), suffix);
+            softAssert.assertEquals(actual, expected,
+                    "Mismatch: displayName on: " + identityKey);
+            Reporter.log("    [attr] displayName → " + actual);
+        }
+        if (section.getUserType() != null) {
+            String actual = response.jsonPath().getString("userType");
+            String expected = TestUtils.resolveSuffix(section.getUserType(), suffix);
+            softAssert.assertEquals(actual, expected,
+                    "Mismatch: userType on: " + identityKey);
+            Reporter.log("    [attr] userType → " + actual);
+        }
+        if (section.getEmail() != null) {
+            String actual = response.jsonPath().getString("emails[0].value");
+            String expected = TestUtils.resolveSuffix(section.getEmail(), suffix);
+            softAssert.assertEquals(actual, expected,
+                    "Mismatch: email on: " + identityKey);
+            Reporter.log("    [attr] email → " + actual);
+        }
+        if (section.getActive() != null) {
+            String actual = String.valueOf(response.jsonPath().getBoolean("active"));
+            String expected = String.valueOf(section.getActive());
+            softAssert.assertEquals(actual, expected,
+                    "Mismatch: active on: " + identityKey);
+            Reporter.log("    [attr] active → " + actual);
+        }
+
+        // ── Enterprise extension — manager ───────────────────────────────
+        if (section.getManagerValue() != null) {
+            String actual = response.jsonPath().getString(ent + "manager.value");
+            String expected = TestUtils.resolveSuffix(section.getManagerValue(), suffix);
+            softAssert.assertEquals(actual, expected,
+                    "Mismatch: managerValue on: " + identityKey);
+            Reporter.log("    [attr] managerValue → " + actual);
+        }
+        if (section.getManagerDisplayName() != null) {
+            String actual = response.jsonPath().getString(ent + "manager.displayName");
+            String expected = TestUtils.resolveSuffix(section.getManagerDisplayName(), suffix);
+            softAssert.assertEquals(actual, expected,
+                    "Mismatch: managerDisplayName on: " + identityKey);
+            Reporter.log("    [attr] managerDisplayName → " + actual);
+        }
+
+        // ── SailPoint extension ──────────────────────────────────────────
+        if (spAttrs != null) {
+            for (Map.Entry<String, Object> entry : spAttrs.entrySet()) {
+                String attrName = entry.getKey();
+                String jsonPath = sp + attrName;
+                Object rawValue = entry.getValue();
+                if (rawValue instanceof List) {
+                    // Multi-valued attribute (e.g. "capabilities": ["A", "B"])
+                    List<?> rawList = (List<?>) rawValue;
+                    List<String> expectedList = new ArrayList<>();
+                    for (Object item : rawList) {
+                        expectedList.add(TestUtils.resolveSuffix(
+                                item != null ? String.valueOf(item) : "", suffix));
+                    }
+                    List<String> actualList = response.jsonPath().getList(jsonPath);
+                    softAssert.assertEquals(actualList, expectedList,
+                            "Mismatch for sailpoint." + attrName + " on: " + identityKey);
+                    Reporter.log("    [attr] sailpoint." + attrName + " → " + actualList);
+                } else {
+                    // Single-valued attribute
+                    String actual = response.jsonPath().getString(jsonPath);
+                    String rawExpected = String.valueOf(rawValue);
+                    String expected = TestUtils.resolveSuffix(rawExpected, suffix);
+                    softAssert.assertEquals(actual, expected,
+                            "Mismatch for sailpoint." + attrName + " on: " + identityKey);
+                    Reporter.log("    [attr] sailpoint." + attrName + " → " + actual);
+                }
+            }
+        }
+
         return count;
     }
 }
