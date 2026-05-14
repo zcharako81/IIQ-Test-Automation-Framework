@@ -69,6 +69,13 @@ public class IdentityDataSet {
         @JsonProperty("modify")
         private Map<String, Map<String, Object>> modify;
 
+        /**
+         * Optional per-phase descriptions, keyed by the full phase string
+         * (e.g. {@code "modify:1"}, {@code "task:RefreshIdentitySingle"}).
+         * Displayed in the HTML report as a muted sub-label below the phase name.
+         */
+        private Map<String, String> descriptions;
+
         // ── Getters / Setters ────────────────────────────────────────
 
         public List<String> getTests() { return tests; }
@@ -86,6 +93,10 @@ public class IdentityDataSet {
 
         public Map<String, IdentitySection> getExpectedModify() { return expectedModify; }
         public void setExpectedModify(Map<String, IdentitySection> expectedModify) { this.expectedModify = expectedModify; }
+
+        /** Returns per-phase descriptions, or null if not configured. */
+        public Map<String, String> getDescriptions() { return descriptions; }
+        public void setDescriptions(Map<String, String> descriptions) { this.descriptions = descriptions; }
 
         /**
          * Returns the expected section for a given modify qualifier.

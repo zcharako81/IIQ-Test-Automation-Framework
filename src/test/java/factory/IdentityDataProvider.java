@@ -166,6 +166,21 @@ public class IdentityDataProvider {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Returns a human-readable description for a given phase, or {@code null}
+     * if none is configured.
+     * <p>
+     * From JSON: reads the {@code descriptions} map in the identity entry,
+     * keyed by the full phase string (e.g. {@code "modify:1"}).
+     * From properties: not supported (returns null).
+     */
+    public static String getPhaseDescription(String identityKey, String phase) {
+        if (!useJson) return null;
+        IdentityEntry entry = getEntry(identityKey);
+        if (entry == null || entry.getDescriptions() == null) return null;
+        return entry.getDescriptions().get(phase);
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // Expected roles
     // ─────────────────────────────────────────────────────────────────────

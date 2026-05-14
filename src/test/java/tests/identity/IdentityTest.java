@@ -111,6 +111,10 @@ public class IdentityTest extends BaseTest {
                 }
                 String phaseLabel = phase + (qualifier.isEmpty() ? "" : " (qualifier='" + qualifier + "')");
                 Reporter.log("  Phase: " + phaseLabel);
+                String description = IdentityDataProvider.getPhaseDescription(ctx.identityKey, phase);
+                if (description != null) {
+                    Reporter.log("    [desc] " + description);
+                }
                 long phaseStart = System.currentTimeMillis();
                 switch (phaseName) {
                     case "create":

@@ -44,6 +44,10 @@ public class IdentityPhaseReporter implements IReporter {
     private static final Pattern PHASE_START =
             Pattern.compile("  Phase: (.+)");
 
+    // Phase description line (4 spaces, "[desc] <text>")
+    private static final Pattern PHASE_DESC =
+            Pattern.compile("    \\[desc\\] (.+)");
+
     // Detail summary lines (2-space indent)
     private static final Pattern DETAIL_VERIFY_IDENTITY =
             Pattern.compile("  \\[verifyIdentity\\] Attributes checked: (\\d+)");
@@ -99,6 +103,8 @@ public class IdentityPhaseReporter implements IReporter {
         String name;
         long durationMs;
         boolean passed;
+        /** Optional human-readable description (from identity.json {@code descriptions} map). */
+        String description;
         /** Detail summary lines attached to this phase. */
         List<DetailItem> details = new ArrayList<>();
     }
@@ -238,6 +244,16 @@ public class IdentityPhaseReporter implements IReporter {
                 currentIdentity.phases.add(entry);
                 currentDetail = null;
                 continue;
+            }
+
+            // Phase description ("    [desc] Update title and end-date")
+            if (currentIdentity != null && !currentIdentity.phases.isEmpty()) {
+                Matcher descMatcher = PHASE_DESC.matcher(line);
+                if (descMatcher.matches()) {
+                    PhaseEntry last = currentIdentity.phases.get(currentIdentity.phases.size() - 1);
+                    last.description = descMatcher.group(1);
+                    continue;
+                }
             }
 
             if (currentIdentity == null || currentIdentity.phases.isEmpty()) {
@@ -643,6 +659,14 @@ public class IdentityPhaseReporter implements IReporter {
                   padding: 2px 0;
                 }
 
+                /* ── Description column ─────────────────────────────── */
+                .phase-desc-cell {
+                  font-size: 13px;
+                  color: #666;
+                  line-height: 1.4;
+                  vertical-align: middle;
+                }
+
                 /* ── Phase table ────────────────────────────────────────── */
                 .phase-table {
                   width: 100%;
@@ -701,14 +725,14 @@ public class IdentityPhaseReporter implements IReporter {
                 .dur-bar-wrapper {
                   display: flex;
                   align-items: center;
-                  gap: 10px;
+                  justify-content: flex-end;
+                  gap: 8px;
                 }
                 .dur-bar {
                   height: 8px;
                   border-radius: 4px;
-                  min-width: 30px;
+                  min-width: 40px;
                   flex: 1;
-                  max-width: 200px;
                   background: #e0e0e0;
                   overflow: hidden;
                 }
@@ -716,13 +740,8 @@ public class IdentityPhaseReporter implements IReporter {
                   height: 100%;
                   border-radius: 4px;
                   transition: width 0.3s;
+                  background: linear-gradient(90deg, #42a5f5, #1565c0);
                 }
-                .dur-bar-fill.task    { background: linear-gradient(90deg, #42a5f5, #1565c0); }
-                .dur-bar-fill.create  { background: linear-gradient(90deg, #66bb6a, #2e7d32); }
-                .dur-bar-fill.verify  { background: linear-gradient(90deg, #66bb6a, #2e7d32); }
-                .dur-bar-fill.modify  { background: linear-gradient(90deg, #ffa726, #e65100); }
-                .dur-bar-fill.delete  { background: linear-gradient(90deg, #ef5350, #c62828); }
-                .dur-bar-fill.default { background: linear-gradient(90deg, #b0bec5, #78909c); }
 
                 /* Status indicator */
                 .phase-status { font-size: 18px; text-align: center; }
@@ -870,6 +889,7 @@ public class IdentityPhaseReporter implements IReporter {
                     color: #fca5a5;
                   }
                   .identity-error .error-more summary { color: #f87171; }
+                  .phase-desc-cell { color: #aaa; }
                 }
 
                 /* ── Print ──────────────────────────────────────────────── */
@@ -941,9 +961,9 @@ public class IdentityPhaseReporter implements IReporter {
         sb.append("  <table class=\"phase-table\">\n");
         sb.append("    <thead>\n");
         sb.append("      <tr>\n");
-        sb.append("        <th style=\"width:38%\">Phase</th>\n");
-        sb.append("        <th style=\"width:32%\">Duration</th>\n");
-        sb.append("        <th style=\"width:20%; text-align:right;\">Time</th>\n");
+        sb.append("        <th style=\"width:22%\">Phase</th>\n");
+        sb.append("        <th style=\"width:30%\">Description</th>\n");
+        sb.append("        <th style=\"width:33%; text-align:center;\">Duration</th>\n");
         sb.append("        <th style=\"width:10%; text-align:center;\">Status</th>\n");
         sb.append("      </tr>\n");
         sb.append("    </thead>\n");
@@ -962,17 +982,20 @@ public class IdentityPhaseReporter implements IReporter {
             sb.append("            <span>").append(escapeHtml(phase.name)).append("</span>\n");
             sb.append("          </div>\n");
             sb.append("        </td>\n");
+            sb.append("        <td class=\"phase-desc-cell\">\n");
+            if (phase.description != null) {
+                sb.append("          <span>").append(escapeHtml(phase.description)).append("</span>\n");
+            }
+            sb.append("        </td>\n");
             sb.append("        <td>\n");
             sb.append("          <div class=\"dur-bar-wrapper\">\n");
             sb.append("            <div class=\"dur-bar\">\n");
-            sb.append("              <div class=\"dur-bar-fill ").append(phaseType).append("\"")
+            sb.append("              <div class=\"dur-bar-fill\"")
                     .append(" style=\"width:").append(String.format("%.1f", pct)).append("%\"></div>\n");
             sb.append("            </div>\n");
-            sb.append("          </div>\n");
-            sb.append("        </td>\n");
-            sb.append("        <td style=\"text-align:right;\">\n");
-            sb.append("          <span class=\"phase-duration\">")
+            sb.append("            <span class=\"phase-duration\">")
                     .append(formatDuration(phase.durationMs)).append("</span>\n");
+            sb.append("          </div>\n");
             sb.append("        </td>\n");
             sb.append("        <td class=\"phase-status\">").append(phase.passed ? "\u2705" : "\u274C").append("</td>\n");
             sb.append("      </tr>\n");

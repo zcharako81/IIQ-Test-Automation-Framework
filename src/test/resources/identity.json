@@ -11,6 +11,12 @@
 		"deleteAccounts", 
         "delete"
 		  ],
+      "descriptions": {
+        "verifyCreate": "Verify core attributes, roles, and LDAP account after creation",
+        "modify:1": "Update title, department, and Identity_End_Date via SCIM PATCH",
+        "task:LdapAccountAggregation": "Trigger LDAP aggregation to provision accounts",
+        "deleteAccounts": "Remove all provisioned accounts from LDAP prior to identity deletion"
+      },
       "create": {
         "userName": "john.doe",
         "firstname": "John",
@@ -35,10 +41,10 @@
       "expectedCreate": {
         "userName": "john.doe.{suffix}",
         "firstname": "John",
-        "lastname": "Doef",
+        "lastname": "Doe",
         "displayName": "John Doe",
         "email": "{suffix}.john.doe@acme.com",
-        "userType": "employeeE",
+        "userType": "employee",
         "managerValue": "ac10c6819cc4176a819cc468045e00fe",
         "managerDisplayName": "The Administrator",
         "active": true,
