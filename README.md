@@ -250,7 +250,7 @@ Attributes inside `create` / `expectedCreate` / `expectedModify` sections map to
 
 | JSON key | SCIM Schema | Java handling |
 |---|---|---|
-| `userName`, `firstname`, `lastname`, `displayName`, `userType`, `email`, `active`, `managerValue` | `urn:ietf:params:scim:schemas:core:2.0:User` + `enterprise` extension | Compiled POJO fields |
+| `userName`, `firstname`, `lastname`, `displayName`, `userType`, `email`, `active`, `managerValue` | `urn:ietf:params:scim:schemas:core:2.0:User` + `enterprise` extension | Compiled POJO fields. `managerValue` is an **IIQ-instance-specific UUID** — update all occurrences when targeting a different IIQ environment (see troubleshooting below). |
 | `sailpoint.*` (e.g. `sailpoint.title`, `sailpoint.department`) | `urn:ietf:params:scim:schemas:sailpoint:1.0:User` | `Map<String, Object>` — adding attributes requires **zero Java changes** |
 
 Any `sailpoint.*` block is optional; omit it and the framework skips the SailPoint extension entirely.
@@ -378,6 +378,11 @@ This makes it easy to verify at a glance which attributes were tested, which rol
 - After identity creation, run `task:RefreshIdentitySingle` (or equivalent) to trigger role/account aggregation.
 - Roles and accounts are verified via SCIM query params — check that the expected roles match the role `display` values in IIQ.
 - For accounts, verify the `application` name in `identity.json` matches the application `displayName` in IIQ.
+
+### managerValue assertions fail after switching IIQ environments
+- The `managerValue` in `identity.json` (and `identity.properties`) is a hardcoded UUID specific to the IIQ instance the tests were written against. When switching to a different IIQ server, update **every occurrence** of the UUID with the target instance's manager identity UUID.
+- To find the correct UUID: `GET /scim/v2/Users?filter=userName eq "The Administrator"` and copy the `id` field from the response. Replace all `managerValue` entries in `identity.json` and `identity.properties` with this value.
+- If the manager's `displayName` also differs, update `managerDisplayName` entries accordingly.
 
 ### HTML report is empty or shows "0 identities"
 - The report parses `Reporter.log()` output. Make sure `logging.enabled=true` in config.properties.
