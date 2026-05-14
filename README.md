@@ -12,7 +12,7 @@ This framework supports end-to-end IAM testing including:
 * ✅ Account provisioning — verify accounts per application
 * ✅ Multi-identity — simultaneous lifecycle for many identities
 * ✅ Multi-round modify — multiple modification rounds
-* ✅ Dynamic attributes — any sailpoint.* property, zero Java changes
+* ✅ Dynamic attributes — any sailpoint.* property (incl. custom attributes)
 
 Disclaimer: This project is an independent test automation framework and is not affiliated with or endorsed by SailPoint Technologies. It contains no SailPoint code, libraries, JARs or binaries. 
 
