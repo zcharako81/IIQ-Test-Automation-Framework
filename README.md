@@ -313,59 +313,6 @@ Each identity is rendered as a card with a badge, phase count, and total duratio
 │ ➖ delete          ██                  98ms         ✅          │
 └──────────────────────────────────────────────────────────────────┘
 ```
-
-Each phase has:
-- **Icon** — ⚙️ task, ✅ verify, ✏️ modify, ➕ create, ➖ delete
-- **Duration bar** — proportional to the longest phase
-- **Status** — ✅ phase passed or ❌ assertion failure detected
-- **Expandable detail sections** — click to reveal attributes, roles, and account attributes
-
-### Expandable Detail Sections
-
-Click each detail summary to expand:
-
-| Section | Icon | Content |
-|---|---|---|
-| `Attributes checked: N` | 📋 | Key → value grid of every verified attribute |
-| `Roles: [...] matched M/N` | 🏆 | Bullet list of expected roles with ✅/❌ per role |
-| `App: <name> (N attrs)` | 🔗 | Per-application attribute table (key → value) |
-| `App: <name> (should not exist)` | 🔗 | Indicates the account was expected to be absent |
-
-### Failure Reporting
-
-When `SoftAssert` assertions fail, the report automatically captures the failure:
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  👤 user1                                    ❌ Failed           │
-├──────────────────────────────────────────────────────────────────┤
-│  ❌ Test Assertions Failed                                       │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │ The following asserts failed:                             │   │
-│  │   Mismatch: displayName on: user1 expected [John Doe      │   │
-│  │   PATCHED] but found [Jane Doe]                           │   │
-│  └──────────────────────────────────────────────────────────┘   │
-├──────────────────────────────────────────────────────────────────┤
-│ Phase              Duration              Time        Status     │
-│ ✅ verifyCreate    ██████              312ms        ❌          │
-│ ...                                                             │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-- **Red error box** appears between the identity header and the phase table
-- Error message is shown with monospace formatting; long messages are truncated with a *Show full failure details* expansion link
-- The **Status column** marks the relevant verify phase with ❌ by classifying the failed attribute (identity, role, or account)
-- Only the identity whose key appears in the assertion error message is marked failed — other identities remain ✅ Passed
-
-### Detail line format by phase
-
-| Phase | Detail line | Example |
-|---|---|---|
-| `verifyCreate` / `verifyModify` | `[verifyIdentity] Attributes checked: <N>` | `[verifyIdentity] Attributes checked: 8` |
-| *(nested inside verify phase)* | `[verifyRoles] Expected: [<roles>] matched <M>/<N>` | `[verifyRoles] Expected: [ALL_ACTIVE_USERS] matched 1/1` |
-| *(nested inside verify phase)* | `[verifyAccounts] App: <app> (<N> attrs)` | `[verifyAccounts] App: LDAP-Test (4 attrs)` |
-| *(not exists)* | `[verifyAccounts] App: <app> (should not exist)` | `[verifyAccounts] App: LDAP-Test (should not exist)` |
-
 This makes it easy to verify at a glance which attributes were tested, which roles matched, and which applications were validated — without scrolling through raw JSON responses.
 
 ---
