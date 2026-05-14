@@ -38,9 +38,6 @@ src/test/java
 ├── model/               # SCIM models (Identity, Workflow, etc.)
 ├── services/            # API service layer (Identity, Workflow)
 ├── factory/             # Test data builders + data providers
-│   ├── IdentityDataFactory.java      # Factory API (delegates to provider)
-│   ├── IdentityDataProvider.java     # Unified data access layer
-│   └── IdentityDataSet.java          # JSON data model classes
 ├── utils/               # Helper utilities (waits, validation)
 ├── tests/
 │   ├── base/            # Base test classes
@@ -108,33 +105,6 @@ test.suffix=random
 # Default is 'properties' (backward compatible).
 identity.data.source=json
 ```
-
-### Account validation flow
-
-1. `GET /Users/{id}?attributes=...accounts` — returns account references
-2. For each reference, `GET $ref` — fetches the Account resource including `application.displayName` and schema-specific attributes
-3. Match by `application.displayName` against the expected application name
-4. Validate expected attributes against the schema-specific nested map
-
-### Modify lifecycle
-
-The framework modifies identities via **SCIM PATCH** and re-verifies:
-
-```
-modify → verifyModify → deleteAccounts
-```
-
-The `modify` section contains only the changed attributes (PATCH semantics), while `expectedModify` must contain the full expected state after modification (PUT semantics).
-
-```json
-"modify": {
-  "1": {
-    "displayName": "John Doe PATCHED",
-    "sailpoint": { "title": "Senior Software Engineer" }
-  }
-}
-```
-
 ---
 
 ### JSON Data Source — `identity.json`
@@ -247,6 +217,32 @@ Attributes inside `create` / `expectedCreate` / `expectedModify` sections map to
 Any `sailpoint.*` block is optional; omit it and the framework skips the SailPoint extension entirely.
 
 > **Note on unqualified modify**: In JSON, unqualified modify uses key `""` (empty string), while qualified rounds use `"1"`, `"2"`, etc. The `modify` section contains only the changed attributes (PATCH semantics), while `expectedModify` must contain the full expected state after modification (PUT semantics).
+
+### Account validation flow
+
+1. `GET /Users/{id}?attributes=...accounts` — returns account references
+2. For each reference, `GET $ref` — fetches the Account resource including `application.displayName` and schema-specific attributes
+3. Match by `application.displayName` against the expected application name
+4. Validate expected attributes against the schema-specific nested map
+
+### Modify lifecycle
+
+The framework modifies identities via **SCIM PATCH** and re-verifies:
+
+```
+modify → verifyModify → deleteAccounts
+```
+
+The `modify` section contains only the changed attributes (PATCH semantics), while `expectedModify` must contain the full expected state after modification (PUT semantics).
+
+```json
+"modify": {
+  "1": {
+    "displayName": "John Doe PATCHED",
+    "sailpoint": { "title": "Senior Software Engineer" }
+  }
+}
+```
 
 ---
 
