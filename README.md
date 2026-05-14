@@ -22,7 +22,7 @@ Disclaimer: This project is an independent test automation framework and is not 
 
 | Component        | Technology |
 |-----------------|-----------|
-| Language        | Java 11+ |
+| Language        | Java 15+ |
 | Build Tool      | Maven |
 | Test Framework  | TestNG |
 | API Testing     | REST-Assured |
@@ -384,7 +384,7 @@ This makes it easy to verify at a glance which attributes were tested, which rol
 - Check that `test-output/emailable-report.html` was generated after the run.
 
 ### Maven build fails with "java.lang.System.out.println" or compilation errors
-- Ensure you have JDK 11+ installed and `JAVA_HOME` points to it.
+- Ensure you have JDK 15+ installed and `JAVA_HOME` points to it.
 - Run `mvn clean compile` first to clear stale class files.
 
 ---
