@@ -114,20 +114,14 @@ public class IdentityTest extends BaseTest {
                         doExecuteTask(ctx, qualifier);
                         break;
                     case "verifyCreate":
-                        doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".expected.");
-                        break;
-                    case "verifyRoles":
-                        doVerifyRoles(ctx);
-                        break;
-                    case "verifyAccounts":
-                        doVerifyAccounts(ctx, qualifier);
+                        doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".expected.", qualifier);
                         break;
                     case "modify":
                         doModifyIdentity(ctx, qualifier);
                         break;
                     case "verifyModify":
                         doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".expectedAfterModify."
-                                + (qualifier.isEmpty() ? "" : qualifier + "."));
+                                + (qualifier.isEmpty() ? "" : qualifier + "."), qualifier);
                         break;
                     case "deleteAccounts":
                         doDeleteAccounts(ctx);
@@ -173,7 +167,7 @@ public class IdentityTest extends BaseTest {
         );
     }
 
-    private void doVerifyIdentity(IdentityContext ctx, String expectedPrefix) {
+    private void doVerifyIdentity(IdentityContext ctx, String expectedPrefix, String qualifier) {
         TestUtils.waitForCondition(
                 () -> service.getUser(ctx.userId).statusCode() == 200,
                 TestUtils.waitTimeout(), TestUtils.waitPoll()
@@ -183,11 +177,21 @@ public class IdentityTest extends BaseTest {
         softAssert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
         int attrCount = verifyIdentity(response, ctx.identityKey, expectedPrefix);
         Reporter.log("  [verifyIdentity] Attributes checked: " + attrCount);
+
+        // Consolidated role verification — roles are read from expectedCreate (no qualifier)
+        List<String> expectedRoles = ConfigManager.getIdentityExpectedRoles(ctx.identityKey);
+        if (expectedRoles != null && !expectedRoles.isEmpty()) {
+            doVerifyRoles(ctx, expectedRoles);
+        }
+
+        // Consolidated account verification — accounts may be qualified (expectedCreate vs expectedModify)
+        List<String> accountTypes = ConfigManager.getAccountTypes(ctx.identityKey, qualifier);
+        if (accountTypes != null && !accountTypes.isEmpty()) {
+            doVerifyAccounts(ctx, qualifier);
+        }
     }
 
-    private void doVerifyRoles(IdentityContext ctx) {
-        List<String> expectedRoles = ConfigManager.getIdentityExpectedRoles(ctx.identityKey);
-        softAssert.assertNotNull(expectedRoles, "No expected roles defined for: " + ctx.identityKey);
+    private void doVerifyRoles(IdentityContext ctx, List<String> expectedRoles) {
         TestUtils.waitForCondition(() -> {
             var resp = service.getUserWithRoles(ctx.userId);
             if (resp.statusCode() != 200) return false;

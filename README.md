@@ -111,14 +111,12 @@ identity.data.source=json
 Define the identity lifecycle by listing phases in the `tests` array. Each phase executes sequentially; duplicates are allowed for multi-round scenarios.
 
 | Phase | Description |
-|---|---|
+|---|---|---|
 | `create` | Creates the identity via `POST /scim/v2/Users` using the attributes from the `create` section |
 | `task:<taskName>` | Launches the `My-WF-TaskLauncher` workflow for the specified IIQ task (e.g. `task:RefreshIdentitySingle`). The identity name is passed automatically as a task filter. Waits for completion and asserts `Success`. |
-| `verifyCreate` | Fetches the identity via `GET /scim/v2/Users/{id}` and asserts all core, enterprise, and SailPoint extension attributes match `expectedCreate` |
-| `verifyRoles` | Fetches identity roles via SCIM `?attributes=...roles` query and asserts all roles from `expectedCreate.roles` are assigned (with polling) |
-| `verifyAccounts` | Fetches identity accounts via SCIM `?attributes=...accounts` query, resolves each account reference, and validates per-application attributes against `expectedCreate.accounts.<type>.expected` |
+| `verifyCreate` | Fetches the identity via `GET /scim/v2/Users/{id}` and asserts all core, enterprise, and SailPoint extension attributes match `expectedCreate`; also verifies `roles` and `accounts` from the same section (with polling for roles) |
 | `modify` | Modifies the identity via **SCIM PATCH** using the attributes from the `modify` section (`modify:1`, `modify:2`, etc. for multi-round) |
-| `verifyModify` | Fetches the identity and asserts attributes match the corresponding `expectedModify` section (`verifyModify:1` → `expectedModify.1`, etc.) |
+| `verifyModify` | Fetches the identity and asserts attributes match the corresponding `expectedModify` section (`verifyModify:1` → `expectedModify.1`); also verifies accounts from the same section |
 | `deleteAccounts` | Fetches all account references and deletes each via its `$ref` URL |
 | `delete` | Deletes the identity via `DELETE /scim/v2/Users/{id}` |
 
