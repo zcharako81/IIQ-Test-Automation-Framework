@@ -36,15 +36,16 @@ src/test/java
 │
 ├── base/                # Core framework classes (API, config, auth, SCIM schemas)
 ├── model/               # SCIM models (Identity, Workflow, etc.)
-├── services/            # API service layer (Identity, Workflow)
+├── services/            # API service layer (Identity, Workflow) with retry
 ├── factory/             # Test data builders + data providers
-├── utils/               # Helper utilities (waits, validation)
+├── utils/               # Helper utilities (waits, validation, retry, response validation)
+├── reporting/           # Custom TestNG IReporter (emailable-report.html)
 ├── tests/
 │   ├── base/            # Base test classes
 │   └── identity/        # Identity lifecycle tests
 │
 src/test/resources
-├── config.properties    # Global test config (URL, auth, timeouts, data source)
+├── config.properties    # Global test config (URL, auth, timeouts, data source, retry)
 ├── identity.json        # Identity test data (JSON format, supports SCIM PATCH)
 │
 src/test/iiq
@@ -59,7 +60,7 @@ src/test/iiq
 - **All tests are defined in `identity.json`**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, and account attributes — is configured in a single JSON data file. No Java code changes are needed to define or modify test cases.
 - **Define your test scenario**: Start by listing your test identities under the `identities` key. For each identity, provide create attributes, expected values, expected roles, and account validations. Everything is driven by conventions documented below.
 - **Phase list**: Define the identity lifecycle via the `tests` array. All tasks are launched via the unified `task:<taskName>` phase (e.g. `task:RefreshIdentitySingle`). The identity name is passed automatically as a workflow filter.
-- **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `Testng.xml`).
+- **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `testng.xml`).
 
 ---
 
@@ -99,7 +100,34 @@ test.suffix=random
 #   json   → load test data from identity.json (recommended)
 # Default is 'properties' (backward compatible).
 identity.data.source=json
+
+# --- HTTP timeouts (milliseconds, uncomment to customize) ---
+# connect.timeout.ms=10000
+# read.timeout.ms=30000
+# socket.timeout.ms=30000
+
+# --- Retry on transient failures (uncomment to customize) ---
+# retry.max.attempts=3
+# retry.initial.delay.ms=1000
+# retry.backoff.multiplier=2.0
 ```
+
+### ⏱️ Retry & Timeout Configuration
+
+In addition to wait timeouts for polling operations, the framework supports independent HTTP-level timeouts and retry for transient API failures:
+
+| Config Key | Default | Purpose |
+|---|---|---|
+| `connect.timeout.ms` | 10000 | TCP connection timeout |
+| `read.timeout.ms` | 30000 | Data read timeout |
+| `socket.timeout.ms` | 30000 | Socket timeout |
+| `retry.max.attempts` | 3 | Max retries for idempotent GET operations |
+| `retry.initial.delay.ms` | 1000 | Initial delay before first retry |
+| `retry.backoff.multiplier` | 2.0 | Exponential backoff multiplier |
+
+Retry is applied automatically for all idempotent GET operations in `IdentityService` (`getUser`, `getUserWithRoles`, `getUserAccounts`, `getAccountByRef`) and `WorkflowService` (`getWorkflow`). Non-idempotent operations (POST, PUT, PATCH, DELETE) are never retried.
+
+---
 
 ### Test phases
 
@@ -258,7 +286,7 @@ mvn clean test
 Or via TestNG suite:
 
 ```
-mvn test -DsuiteXmlFile=Testng.xml
+mvn test -DsuiteXmlFile=testng.xml
 ```
 
 The single `@Test` method `testLifecycle()` runs a per-identity ordered phase list from the `tests` array. Default lifecycle:
@@ -319,9 +347,45 @@ This makes it easy to verify at a glance which attributes were tested, which rol
 
 ## 📦 Dependencies
 
-- `org.testng:testng`
-- `io.rest-assured:rest-assured`
-- `org.apache.commons:commons-lang3`
+| Dependency | Version | Purpose |
+|---|---|---|
+| `org.testng:testng` | 7.11.0 | Test framework |
+| `io.rest-assured:rest-assured` | 6.0.0 | REST API testing |
+| `org.hamcrest:hamcrest` | 3.0 | Matchers (bundled with RestAssured) |
+| `org.apache.commons:commons-configuration2` | 2.9.0 | Configuration loading |
+| `com.fasterxml.jackson.core:jackson-databind` | 2.17.0 | JSON parsing for identity.json |
+
+---
+
+## 🔧 Troubleshooting
+
+### Test fails with "Connection refused" or timeout
+- Verify IIQ server is running and reachable at `base.url`.
+- Check `connect.timeout.ms` / `read.timeout.ms` in config.properties; increase if network is slow.
+- Ensure no firewall blocking port 8080.
+
+### Workflow tasks fail with "completionStatus: Error"
+- Verify `My-WF-TaskLauncher` is imported into IIQ (see Prerequisite).
+- Check the task name in the phase list — must exactly match the IIQ task name (e.g. `task:RefreshIdentitySingle`).
+- Verify `workflow.name` in config.properties matches the workflow XML name.
+- Ensure the identity exists in IIQ before running task phases.
+
+### Identity creation fails with 409 Conflict
+- The username may already exist in IIQ. Use a fresh `test.suffix` (or `random`) to avoid name collisions.
+- Delete the identity manually in IIQ or choose a new suffix.
+
+### Role/account verification fails
+- After identity creation, run `task:RefreshIdentitySingle` (or equivalent) to trigger role/account aggregation.
+- Roles and accounts are verified via SCIM query params — check that the expected roles match the role `display` values in IIQ.
+- For accounts, verify the `application` name in `identity.json` matches the application `displayName` in IIQ.
+
+### HTML report is empty or shows "0 identities"
+- The report parses `Reporter.log()` output. Make sure `logging.enabled=true` in config.properties.
+- Check that `test-output/emailable-report.html` was generated after the run.
+
+### Maven build fails with "java.lang.System.out.println" or compilation errors
+- Ensure you have JDK 11+ installed and `JAVA_HOME` points to it.
+- Run `mvn clean compile` first to clear stale class files.
 
 ---
 

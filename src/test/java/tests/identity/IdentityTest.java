@@ -23,6 +23,7 @@ import factory.IdentityDataFactory;
 import factory.IdentityDataProvider;
 import factory.IdentityDataSet.IdentitySection;
 import factory.LaunchedWorkflowDataFactory;
+import utils.ResponseValidator;
 import utils.TestUtils;
 
 @Listeners(reporting.IdentityPhaseReporter.class)
@@ -38,11 +39,11 @@ public class IdentityTest extends BaseTest {
     {
         String raw = ConfigManager.getTestSuffix();
         if (raw == null) {
-            suffix = "";                                     // not set → no suffix
+            suffix = "";
         } else if ("random".equalsIgnoreCase(raw.trim())) {
-            suffix = String.valueOf(System.currentTimeMillis());  // random → auto-generate
+            suffix = String.valueOf(System.currentTimeMillis());
         } else {
-            suffix = raw.trim();                             // fixed value
+            suffix = raw.trim();
         }
     }
 
@@ -52,7 +53,7 @@ public class IdentityTest extends BaseTest {
         String identityKey;
     }
 
-    @Test(description = "SCIM: Per-identity lifecycle driven by identity.properties .tests list")
+    @Test(description = "SCIM: Per-identity lifecycle driven by identity.json .tests list")
     public void testLifecycle() {
         softAssert = new SoftAssert();
         testStartTime = System.currentTimeMillis();
@@ -66,17 +67,16 @@ public class IdentityTest extends BaseTest {
             ctx.identityKey = key;
             List<String> phases = ConfigManager.getIdentityTests(key);
             if (phases.contains("create")) {
-                // Create the identity via SCIM POST
                 Reporter.log(">>> Creating identity: " + key);
                 Identity user = IdentityDataFactory.createIdentity(suffix, key);
                 var response = service.createUser(user);
-                softAssert.assertEquals(response.statusCode(), 201, "Create failed for identity: " + key);
+                ResponseValidator.assertStatus(response, 201, softAssert,
+                        "Create failed for identity: " + key);
                 ctx.userId = response.jsonPath().getString("id");
                 softAssert.assertNotNull(ctx.userId, "User ID must not be null for: " + key);
                 ctx.identity = user;
                 Reporter.log("<<< Created identity: " + key + " -> id=" + ctx.userId);
             } else {
-                // Look up existing identity by userName (from expected properties)
                 String expectedUserName = IdentityDataFactory.getExpectedUserName(suffix, key);
                 Reporter.log(">>> Resolving existing identity: " + key + " (userName=" + expectedUserName + ")");
                 var response = service.findUserByUserName(expectedUserName);
@@ -101,7 +101,6 @@ public class IdentityTest extends BaseTest {
             List<String> phases = ConfigManager.getIdentityTests(ctx.identityKey);
             Reporter.log("=== Identity: " + ctx.identityKey + " (" + phases.size() + " phases) ===");
             for (String phase : phases) {
-                // Parse optional qualifier: "modify:1" → name="modify", qualifier="1"
                 String phaseName = phase;
                 String qualifier = "";
                 int colonIdx = phase.indexOf(':');
@@ -118,7 +117,7 @@ public class IdentityTest extends BaseTest {
                 long phaseStart = System.currentTimeMillis();
                 switch (phaseName) {
                     case "create":
-                        break; // already handled during initialization
+                        break;
                     case "task":
                         doExecuteTask(ctx, qualifier);
                         break;
@@ -154,18 +153,14 @@ public class IdentityTest extends BaseTest {
 
     // ── Phase methods (single IdentityContext) ──────────────────────────────
 
-    /**
-     * Launches the My-WF-TaskLauncher workflow for the given task name,
-     * waits for completion, and asserts it finished with status Success.
-     * Used by the {@code task:<taskName>} phase.
-     */
     private void doExecuteTask(IdentityContext ctx, String taskName) {
         var workflow = LaunchedWorkflowDataFactory.createWorkflow(ctx.identity.userName, taskName);
         var response = workflowService.launchWorkflow(workflow);
-        softAssert.assertEquals(response.statusCode(), 201,
+        ResponseValidator.assertStatus(response, 201, softAssert,
                 "Task launch failed for " + taskName + " on: " + ctx.identityKey);
         String workflowId = response.jsonPath().getString("id");
-        softAssert.assertNotNull(workflowId);
+        softAssert.assertNotNull(workflowId,
+                "Workflow ID is null for task " + taskName + " on: " + ctx.identityKey);
         TestUtils.waitForWorkflowCompletion(workflowService, workflowId,
                 TestUtils.waitTimeout(), TestUtils.waitPoll());
         var result = workflowService.getWorkflow(workflowId);
@@ -182,9 +177,9 @@ public class IdentityTest extends BaseTest {
                 TestUtils.waitTimeout(), TestUtils.waitPoll()
         );
         Response response = service.getUser(ctx.userId);
-        softAssert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
+        ResponseValidator.assertSuccess(response, softAssert,
+                "Get failed for identity: " + ctx.identityKey);
         softAssert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
-        // Resolve JSON section for attribute verification
         IdentitySection jsonSection = null;
         if (IdentityDataProvider.isJsonSource()) {
             String sectionName = (qualifier == null || qualifier.isEmpty())
@@ -194,13 +189,11 @@ public class IdentityTest extends BaseTest {
         }
         verifyIdentity(response, ctx.identityKey, expectedPrefix, jsonSection);
 
-        // Consolidated role verification — roles are read from expectedCreate (no qualifier)
         List<String> expectedRoles = ConfigManager.getIdentityExpectedRoles(ctx.identityKey);
         if (expectedRoles != null && !expectedRoles.isEmpty()) {
             doVerifyRoles(ctx, expectedRoles);
         }
 
-        // Consolidated account verification — accounts may be qualified (expectedCreate vs expectedModify)
         List<String> accountTypes = ConfigManager.getAccountTypes(ctx.identityKey, qualifier);
         if (accountTypes != null && !accountTypes.isEmpty()) {
             doVerifyAccounts(ctx, qualifier);
@@ -216,7 +209,8 @@ public class IdentityTest extends BaseTest {
             return actualRoles != null && actualRoles.containsAll(expectedRoles);
         }, TestUtils.waitTimeout(), TestUtils.waitPoll());
         var response = service.getUserWithRoles(ctx.userId);
-        softAssert.assertEquals(response.statusCode(), 200);
+        ResponseValidator.assertSuccess(response, softAssert,
+                "Roles fetch failed for: " + ctx.identityKey);
         List<String> actualRoles = response.jsonPath().getList(
                 ScimSchemas.JSONPATH_SAILPOINT + "roles.display");
         softAssert.assertNotNull(actualRoles, "Roles must not be null for: " + ctx.identityKey);
@@ -229,7 +223,6 @@ public class IdentityTest extends BaseTest {
         for (String role : expectedRoles) {
             if (actualRoles.contains(role)) matched++;
         }
-        // Summary BEFORE per-role details
         Reporter.log("  [verifyRoles] Expected: " + expectedRoles + " matched " + matched + "/" + expectedRoles.size());
         for (String role : expectedRoles) {
             boolean ok = actualRoles.contains(role);
@@ -240,7 +233,7 @@ public class IdentityTest extends BaseTest {
     @SuppressWarnings("unchecked")
     private void doVerifyAccounts(IdentityContext ctx, String qualifier) {
         var response = service.getUserAccounts(ctx.userId);
-        softAssert.assertEquals(response.statusCode(), 200,
+        ResponseValidator.assertSuccess(response, softAssert,
                 "Accounts fetch failed for: " + ctx.identityKey);
         List<Map<String, Object>> accountRefs = response.jsonPath().getList(
                 ScimSchemas.JSONPATH_SAILPOINT + "accounts");
@@ -251,7 +244,7 @@ public class IdentityTest extends BaseTest {
             softAssert.assertNotNull(refUrl,
                     "Missing $ref in account reference for: " + ctx.identityKey);
             Response acctResponse = service.getAccountByRef(refUrl);
-            softAssert.assertEquals(acctResponse.statusCode(), 200,
+            ResponseValidator.assertSuccess(acctResponse, softAssert,
                     "Failed to fetch full account details from: " + refUrl);
             accounts.add(acctResponse.jsonPath().getMap(""));
         }
@@ -280,7 +273,6 @@ public class IdentityTest extends BaseTest {
                         + " on identity: " + ctx.identityKey);
                 Map<String, String> expectedAttrs =
                         ConfigManager.getAccountExpectedAttributes(ctx.identityKey, type, qualifier);
-                // Summary BEFORE per-attribute details
                 int attrCount = expectedAttrs.size();
                 Reporter.log("  [verifyAccounts] App: " + expectedApp + " (" + attrCount + " attrs)");
                 for (var entry : expectedAttrs.entrySet()) {
@@ -306,14 +298,16 @@ public class IdentityTest extends BaseTest {
         Identity identity = IdentityDataFactory.createIdentityForModify(suffix, ctx.identityKey, qualifier);
         identity.id = ctx.userId;
         var response = service.putUser(ctx.userId, identity);
+        int sc = response.statusCode();
         softAssert.assertTrue(
-                response.statusCode() == 200 || response.statusCode() == 204,
-                "PUT failed for " + ctx.identityKey + " (qualifier='" + qualifier + "'): " + response.statusCode());
+                sc == 200 || sc == 204,
+                "PUT failed for " + ctx.identityKey + " (qualifier='" + qualifier + "'): " + sc
+        );
     }
 
     private void doDeleteAccounts(IdentityContext ctx) {
         var response = service.getUserAccounts(ctx.userId);
-        softAssert.assertEquals(response.statusCode(), 200,
+        ResponseValidator.assertSuccess(response, softAssert,
                 "Accounts fetch failed for delete on: " + ctx.identityKey);
         List<Map<String, Object>> accountRefs = response.jsonPath().getList(
                 ScimSchemas.JSONPATH_SAILPOINT + "accounts");
@@ -323,51 +317,39 @@ public class IdentityTest extends BaseTest {
             softAssert.assertNotNull(refUrl,
                     "Missing $ref in account reference for: " + ctx.identityKey);
             var deleteResponse = service.deleteAccountByRef(refUrl);
+            int sc = deleteResponse.statusCode();
             softAssert.assertTrue(
-                    deleteResponse.statusCode() == 204 || deleteResponse.statusCode() == 200,
+                    sc == 204 || sc == 200,
                     "Account delete failed for " + ctx.identityKey + " on ref: " + refUrl
-                            + " \u2014 status: " + deleteResponse.statusCode());
+                            + " — status: " + sc);
         }
     }
 
     private void doDeleteIdentity(IdentityContext ctx) {
         var response = service.deleteUser(ctx.userId);
+        int sc = response.statusCode();
         softAssert.assertTrue(
-                response.statusCode() == 204 || response.statusCode() == 200,
-                "Unexpected delete status for " + ctx.identityKey + ": " + response.statusCode()
+                sc == 204 || sc == 200,
+                "Unexpected delete status for " + ctx.identityKey + ": " + sc
         );
     }
 
     // ── Shared helpers ─────────────────────────────────────────────────────
 
-    /**
-     * Verifies identity attributes from a SCIM GET response.
-     * <p>
-     * In JSON mode (when {@code jsonSection} is non-null), reads expected values
-     * from the {@link IdentitySection} POJO fields (supports {@code {suffix}}).
-     * In properties mode, reads from config properties under {@code expectedPrefix}.
-     *
-     * @return the number of attributes that were validated
-     */
     private int verifyIdentity(Response response, String identityKey,
-                               String expectedPrefix, IdentitySection jsonSection) {
+                                String expectedPrefix, IdentitySection jsonSection) {
         if (jsonSection != null) {
             return verifyIdentityFromJson(response, identityKey, jsonSection);
         }
         return verifyIdentityFromProperties(response, identityKey, expectedPrefix);
     }
 
-    /**
-     * Properties-mode attribute verification.
-     * Reads expected values from {@link ConfigManager} under the given prefix.
-     */
     private int verifyIdentityFromProperties(Response response, String identityKey,
-                                             String expectedPrefix) {
+                                              String expectedPrefix) {
         String p = expectedPrefix;
         String ent = ScimSchemas.JSONPATH_ENTERPRISE;
         String sp = ScimSchemas.JSONPATH_SAILPOINT;
 
-        // ── Pre-count expected attributes ────────────────────────────────
         int count = 0;
         String[] coreKeys = {"userName", "firstname", "lastname", "displayName",
                 "userType", "email", "active"};
@@ -380,10 +362,8 @@ public class IdentityTest extends BaseTest {
         Map<String, String> spExpected = ConfigManager.getByPrefix(spPrefix);
         count += spExpected.size();
 
-        // ── Log summary FIRST (before sub-details) ───────────────────────
         Reporter.log("  [verifyIdentity] Attributes checked: " + count);
 
-        // ── Core SCIM attributes ─────────────────────────────────────────
         if (ConfigManager.getOptional(p + "userName") != null) {
             String actual = response.jsonPath().getString("userName");
             Reporter.log("    [attr] userName → " + actual);
@@ -420,7 +400,6 @@ public class IdentityTest extends BaseTest {
         }
         TestUtils.verifyBooleanAttr(response, p + "active", "active", softAssert);
 
-        // ── Enterprise extension — manager ───────────────────────────────
         if (ConfigManager.getOptional(p + "managerValue") != null) {
             String actual = response.jsonPath().getString(ent + "manager.value");
             Reporter.log("    [attr] managerValue → " + actual);
@@ -432,7 +411,6 @@ public class IdentityTest extends BaseTest {
         }
         TestUtils.verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix, softAssert);
 
-        // ── SailPoint extension ──────────────────────────────────────────
         for (Map.Entry<String, String> entry : spExpected.entrySet()) {
             String rawAttrName = entry.getKey();
             boolean isArray = rawAttrName.endsWith("[]");
@@ -449,17 +427,11 @@ public class IdentityTest extends BaseTest {
         return count;
     }
 
-    /**
-     * JSON-mode attribute verification.
-     * Reads expected values from the {@link IdentitySection} POJO fields.
-     * Supports {@code {suffix}} placeholders in expected values.
-     */
     private int verifyIdentityFromJson(Response response, String identityKey,
-                                       IdentitySection section) {
+                                        IdentitySection section) {
         String ent = ScimSchemas.JSONPATH_ENTERPRISE;
         String sp = ScimSchemas.JSONPATH_SAILPOINT;
 
-        // ── Pre-count expected attributes ────────────────────────────────
         int count = 0;
         if (section.getUserName() != null) count++;
         if (section.getFirstname() != null) count++;
@@ -473,10 +445,8 @@ public class IdentityTest extends BaseTest {
         Map<String, Object> spAttrs = section.getSailpoint();
         if (spAttrs != null) count += spAttrs.size();
 
-        // ── Log summary FIRST (before sub-details) ───────────────────────
         Reporter.log("  [verifyIdentity] Attributes checked: " + count);
 
-        // ── Core SCIM attributes ─────────────────────────────────────────
         if (section.getUserName() != null) {
             String actual = response.jsonPath().getString("userName");
             String expected = TestUtils.resolveSuffix(section.getUserName(), suffix);
@@ -527,7 +497,6 @@ public class IdentityTest extends BaseTest {
             Reporter.log("    [attr] active → " + actual);
         }
 
-        // ── Enterprise extension — manager ───────────────────────────────
         if (section.getManagerValue() != null) {
             String actual = response.jsonPath().getString(ent + "manager.value");
             String expected = TestUtils.resolveSuffix(section.getManagerValue(), suffix);
@@ -543,14 +512,12 @@ public class IdentityTest extends BaseTest {
             Reporter.log("    [attr] managerDisplayName → " + actual);
         }
 
-        // ── SailPoint extension ──────────────────────────────────────────
         if (spAttrs != null) {
             for (Map.Entry<String, Object> entry : spAttrs.entrySet()) {
                 String attrName = entry.getKey();
                 String jsonPath = sp + attrName;
                 Object rawValue = entry.getValue();
                 if (rawValue instanceof List) {
-                    // Multi-valued attribute (e.g. "capabilities": ["A", "B"])
                     List<?> rawList = (List<?>) rawValue;
                     List<String> expectedList = new ArrayList<>();
                     for (Object item : rawList) {
@@ -562,7 +529,6 @@ public class IdentityTest extends BaseTest {
                             "Mismatch for sailpoint." + attrName + " on: " + identityKey);
                     Reporter.log("    [attr] sailpoint." + attrName + " → " + actualList);
                 } else {
-                    // Single-valued attribute
                     String actual = response.jsonPath().getString(jsonPath);
                     String rawExpected = String.valueOf(rawValue);
                     String expected = TestUtils.resolveSuffix(rawExpected, suffix);

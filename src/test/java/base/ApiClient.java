@@ -1,10 +1,28 @@
 package base;
 
 import io.restassured.RestAssured;
+import io.restassured.config.HttpClientConfig;
+import io.restassured.config.RestAssuredConfig;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 
 public class ApiClient {
+
+    private static final int DEFAULT_CONNECT_TIMEOUT = 10000;   // 10s
+    private static final int DEFAULT_READ_TIMEOUT = 30000;      // 30s
+    private static final int DEFAULT_SOCKET_TIMEOUT = 30000;    // 30s
+
+    static {
+        int connectTimeout = parseIntOrDefault("connect.timeout.ms", DEFAULT_CONNECT_TIMEOUT);
+        int readTimeout = parseIntOrDefault("read.timeout.ms", DEFAULT_READ_TIMEOUT);
+        int socketTimeout = parseIntOrDefault("socket.timeout.ms", DEFAULT_SOCKET_TIMEOUT);
+
+        RestAssured.config = RestAssuredConfig.config()
+                .httpClient(HttpClientConfig.httpClientConfig()
+                        .setParam("http.connection.timeout", connectTimeout)
+                        .setParam("http.socket.timeout", socketTimeout)
+                        .setParam("http.connection-manager.timeout", (long) connectTimeout));
+    }
 
     private static RequestSpecification baseRequest() {
 
@@ -63,5 +81,17 @@ public class ApiClient {
         return logResponse(baseRequest()
                 .delete(endpoint)
                 .andReturn());
+    }
+
+    private static int parseIntOrDefault(String key, int defaultValue) {
+        String val = ConfigManager.getOptional(key);
+        if (val != null) {
+            try {
+                return Integer.parseInt(val.trim());
+            } catch (NumberFormatException e) {
+                // fall through
+            }
+        }
+        return defaultValue;
     }
 }
