@@ -5,14 +5,14 @@ It can be executed standalone or integrated into a DevOps pipeline.
 
 This framework supports end-to-end IAM testing including:
 
+* ✅ 100% config-driven — no code changes needed for test scenarios
 * ✅ Identity CRUD — create, read, update, delete
 * ✅ Task execution — any IIQ task via task:<taskName>
 * ✅ Birthright roles — verify role assignments
 * ✅ Account provisioning — verify accounts per application
-* ✅ Multi-round modify — multiple modification rounds
 * ✅ Multi-identity — simultaneous lifecycle for many identities
+* ✅ Multi-round modify — multiple modification rounds
 * ✅ Dynamic attributes — any sailpoint.* property, zero Java changes
-* ✅ 100% config-driven — no code changes needed for test scenarios
 
 Disclaimer: This project is an independent test automation framework and is not affiliated with or endorsed by SailPoint Technologies. It contains no SailPoint code, libraries, JARs or binaries. 
 
@@ -60,17 +60,14 @@ src/test/iiq
 ## 👉 Instructions
 
 - **Prerequisite**: Workflow `My-WF-TaskLauncher` must be imported into IIQ before test execution.
-- **All tests are defined in `identity.properties` (or `identity.json`)**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, and account attributes — is configured in a single data file. No Java code changes are needed to define or modify test cases.
+- **All tests are defined in `identity.json`**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, and account attributes — is configured in a single data file. No Java code changes are needed to define or modify test cases.
 - **Define your test scenario**: Start by listing your test identities under the `identities` key. For each identity, provide create attributes, expected values, expected roles, and account validations. Everything is driven by conventions documented below.
-- **Data source selection**: Controlled by `identity.data.source` in `config.properties`:
-  - `properties` (default) — load from `identity.properties` (flat properties format, uses SCIM PUT for modify)
-  - `json` — load from `identity.json` (structured JSON format, supports SCIM PATCH for partial modify)
-- **Phase list**: Define the identity lifecycle via `identity.<key>.tests` (properties) or `.tests` array (JSON). All tasks are launched via the unified `task:<taskName>` phase (e.g. `task:RefreshIdentitySingle`, `task:LdapAccountAggregation`). The identity name is passed automatically as a workflow filter.
+- **Phase list**: Define the identity lifecycle via `.tests` array (JSON). All tasks are launched via the unified `task:<taskName>` phase (e.g. `task:RefreshIdentitySingle`, `task:LdapAccountAggregation`). The identity name is passed automatically as a workflow filter.
 - **Multi-identity mode**: Define identities via the `identities` key. Each identity gets its own set of create, expected, role, and account properties.
 - **Optional create phase**: If omitted, the framework looks up the identity by `userName` using a SCIM filter query (must already exist in IIQ).
 - **{suffix} placeholder**: Controlled by `test.suffix` in `config.properties`: `random` auto-generates a timestamp, a fixed value reuses a prior run's suffix, omitted uses values as-is.
-- **SailPoint extension attributes**: Add any IIQ attribute via the `sailpoint.` prefix (e.g. `identity.<key>.create.sailpoint.title=Software Engineer` in properties, or `"sailpoint": {"title": "Software Engineer"}` in JSON). Multi-value arrays use `[]` suffix in properties, or JSON arrays in JSON. No Java code changes needed.
-- **Multiple roles**: Defined as comma-separated values in `identity.<key>.expectedCreate.roles` (properties) or `"roles": ["ROLE_A", "ROLE_B"]` in JSON.
+- **SailPoint extension attributes**: Add any IIQ or custom attribute via the `sailpoint.` prefix `"sailpoint": {"title": "Software Engineer"}` in JSON). Multi-value arrays use `[]` suffix in properties, or JSON arrays in JSON. No Java code changes needed.
+- **Multiple roles**: Defined as comma-separated values in `"roles": ["ROLE_A", "ROLE_B"]` in JSON.
 - **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `Testng.xml`).
 
 ---
@@ -82,7 +79,7 @@ All configuration is driven by two properties files loaded in order (later wins 
 | File | Purpose |
 |---|---|
 | `config.properties` | IIQ URL, auth, timeouts, logging, suffix |
-| `identity.properties` | Identity input + expected attributes, roles, and **per-identity account validation** |
+| `identity.properties` | Identity input + expected attributes, roles, and **per-identity account validation** | `Lagacy input config file`
 
 When `identity.data.source=json` is set in `config.properties`, identity test data is loaded from `identity.json` instead of `identity.properties`. The JSON format is structured, supports SCIM PATCH for partial modify, and nests attributes per identity section.
 
