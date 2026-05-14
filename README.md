@@ -121,7 +121,7 @@ identity.data.source=json
 The framework modifies identities via **SCIM PATCH** and re-verifies:
 
 ```
-verifyAccounts → modify → verifyModify → deleteAccounts
+modify → verifyModify → deleteAccounts
 ```
 
 The `modify` section contains only the changed attributes (PATCH semantics), while `expectedModify` must contain the full expected state after modification (PUT semantics).
@@ -147,7 +147,7 @@ When `identity.data.source=json` is set in `config.properties`, test data is loa
 {
   "identities": {
     "user1": {
-      "tests": ["create", "task:RefreshIdentitySingle", "verifyCreate", "modify:1", "verifyModify:1"],
+      "tests": ["create", "task:RefreshIdentitySingle", "task:LDAPAccountAggregation", "verifyCreate", "modify:1", "task:RefreshIdentitySingle", "task:LDAPAccountAggregation", "verifyModify:1"],
       "create": {
         "userName": "john.doe",
         "firstname": "John",
@@ -283,7 +283,7 @@ mvn test -DsuiteXmlFile=Testng.xml
 The single `@Test` method `testLifecycle()` runs a per-identity ordered phase list from the `tests` array. Default lifecycle:
 
 ```
-create → verifyCreate → verifyRoles → verifyAccounts → modify → verifyModify → deleteAccounts → delete
+create → verifyCreate  → modify → verifyModify → deleteAccounts → delete
 ```
 
 If `.tests` is absent, the full default lifecycle above runs. Phases can be repeated; duplicates allowed.
