@@ -381,6 +381,16 @@ public class IdentityPhaseReporter implements IReporter {
         int totalPassed = (int) testPassMap.values().stream().filter(v -> v).count();
         int totalFailed = (int) testPassMap.values().stream().filter(v -> !v).count();
 
+        // ── Fallback total duration ───────────────────────────────────────
+        // When the test fails, softAssert.assertAll() throws before the
+        // "=== All phases completed in Nms ===" summary line is logged, so
+        // totalRunDuration stays 0.  Compute it from identity totals instead.
+        if (totalRunDuration == 0 && !identityReports.isEmpty()) {
+            totalRunDuration = identityReports.stream()
+                    .mapToLong(idr -> idr.totalDuration)
+                    .sum();
+        }
+
         // ── Generate HTML ────────────────────────────────────────────────
         String html = buildHtml(suffix, totalRunDuration, totalPassed, totalFailed,
                 identityReports);
