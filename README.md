@@ -99,6 +99,12 @@ logging.enabled=false
 #   <fixed>     → fixed value for cross-run reuse
 #   (absent)    → no suffix, values used as-is
 test.suffix=random
+
+# --- Identity data source ---
+#   json         → load test data from identity.json (JSON format, supports SCIM PATCH)
+#   properties   → load test data from identity.properties (flat format, SCIM PUT)
+# Default is 'properties' (backward compatible).
+identity.data.source=properties
 ```
 
 ### Identity + Account test data (`identity.properties`)
@@ -272,6 +278,44 @@ identity.user1.tests=create,task:RefreshIdentitySingle,verifyCreate,\
   verifyRoles,verifyAccounts,modify,verifyModify,verifyAccounts,\
   modify,verifyModify,verifyAccounts,deleteAccounts,delete
 ```
+
+---
+
+## 📊 Enhanced Phase Detail Reporting (v1.2.0+)
+
+Starting with version 1.2.0, each verify phase emits a detail line in the TestNG `Reporter.log` output, indicating exactly what was checked:
+
+```
+=== Starting identity lifecycle (suffix: 1747234800000) ===
+...
+=== Identity: user1 (6 phases) ===
+  Phase: task:RefreshIdentitySingle -> 4231ms
+  [verifyIdentity] Attributes checked: 8          ← core + sailpoint attrs
+  Phase: verifyCreate -> 312ms
+  [verifyRoles] Expected: [ALL_ACTIVE_USERS] matched 1/1
+  Phase: verifyRoles -> 215ms
+  [verifyAccounts] App: LDAP-Test (4 attrs)       ← per-application attribute count
+  Phase: verifyAccounts -> 487ms
+  Phase: modify -> 134ms
+  [verifyIdentity] Attributes checked: 9          ← modify round (includes extra attrs)
+  Phase: verifyModify -> 298ms
+  Phase: deleteAccounts -> 321ms
+  Phase: delete -> 98ms
+=== Identity: user1 complete ===
+=== All phases completed in 18730ms ===
+```
+
+### Detail line format by phase
+
+| Phase | Detail line | Example |
+|---|---|---|
+| `verifyCreate` | `[verifyIdentity] Attributes checked: <N>` | `[verifyIdentity] Attributes checked: 8` |
+| `verifyModify` | `[verifyIdentity] Attributes checked: <N>` | `[verifyIdentity] Attributes checked: 9` |
+| `verifyRoles` | `[verifyRoles] Expected: [<roles>] matched <M>/<N>` | `[verifyRoles] Expected: [ALL_ACTIVE_USERS] matched 1/1` |
+| `verifyAccounts` | `[verifyAccounts] App: <app> (<N> attrs)` | `[verifyAccounts] App: LDAP-Test (4 attrs)` |
+| `verifyAccounts` (not exists) | `[verifyAccounts] App: <app> (should not exist)` | `[verifyAccounts] App: LDAP-Test (should not exist)` |
+
+This makes it easy to verify at a glance which attributes were tested, which roles matched, and which applications were validated — without scrolling through raw JSON responses.
 
 ---
 

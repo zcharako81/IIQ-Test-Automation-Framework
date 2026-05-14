@@ -29,6 +29,7 @@ public class IdentityTest extends BaseTest {
     private final Map<String, IdentityContext> identities = new LinkedHashMap<>();
     private final String suffix;
     private SoftAssert softAssert;
+    private long testStartTime;
 
     {
         String raw = ConfigManager.getTestSuffix();
@@ -50,6 +51,7 @@ public class IdentityTest extends BaseTest {
     @Test(description = "SCIM: Per-identity lifecycle driven by identity.properties .tests list")
     public void testLifecycle() {
         softAssert = new SoftAssert();
+        testStartTime = System.currentTimeMillis();
         Reporter.log("=== Starting identity lifecycle (suffix: " + suffix + ") ===");
 
         // ── Phase 0: Initialize IdentityContexts (create or resolve per key) ──
@@ -103,7 +105,8 @@ public class IdentityTest extends BaseTest {
                     phaseName = phase.substring(0, colonIdx);
                     qualifier = phase.substring(colonIdx + 1);
                 }
-                Reporter.log("  Phase: " + phase + (qualifier.isEmpty() ? "" : " (qualifier='" + qualifier + "')"));
+                long phaseStart = System.currentTimeMillis();
+                String phaseLabel = phase + (qualifier.isEmpty() ? "" : " (qualifier='" + qualifier + "')");
                 switch (phaseName) {
                     case "create":
                         break; // already handled during initialization
@@ -135,13 +138,15 @@ public class IdentityTest extends BaseTest {
                     default:
                         softAssert.fail("Unknown phase: " + phase + " for identity: " + ctx.identityKey);
                 }
-                Reporter.log("  \u2713 Phase: " + phase + " done");
+                long phaseDuration = System.currentTimeMillis() - phaseStart;
+                Reporter.log("  Phase: " + phaseLabel + " -> " + phaseDuration + "ms");
             }
             Reporter.log("=== Identity: " + ctx.identityKey + " complete ===");
         }
 
         softAssert.assertAll();
-        Reporter.log("=== All phases completed ===");
+        long totalDuration = System.currentTimeMillis() - testStartTime;
+        Reporter.log("=== All phases completed in " + totalDuration + "ms ===");
     }
 
     // ── Phase methods (single IdentityContext) ──────────────────────────────
@@ -176,7 +181,8 @@ public class IdentityTest extends BaseTest {
         Response response = service.getUser(ctx.userId);
         softAssert.assertEquals(response.statusCode(), 200, "Get failed for: " + ctx.identityKey);
         softAssert.assertEquals(response.jsonPath().getString("id"), ctx.userId);
-        verifyIdentity(response, ctx.identityKey, expectedPrefix);
+        int attrCount = verifyIdentity(response, ctx.identityKey, expectedPrefix);
+        Reporter.log("  [verifyIdentity] Attributes checked: " + attrCount);
     }
 
     private void doVerifyRoles(IdentityContext ctx) {
@@ -199,6 +205,11 @@ public class IdentityTest extends BaseTest {
                 "Missing expected birthright roles for: " + ctx.identityKey
                         + ". Expected: " + expectedRoles + " but found: " + actualRoles
         );
+        int matched = 0;
+        for (String role : expectedRoles) {
+            if (actualRoles.contains(role)) matched++;
+        }
+        Reporter.log("  [verifyRoles] Expected: " + expectedRoles + " matched " + matched + "/" + expectedRoles.size());
     }
 
     @SuppressWarnings("unchecked")
@@ -244,6 +255,7 @@ public class IdentityTest extends BaseTest {
                         + " on identity: " + ctx.identityKey);
                 Map<String, String> expectedAttrs =
                         ConfigManager.getAccountExpectedAttributes(ctx.identityKey, type, qualifier);
+                int attrCount = 0;
                 for (var entry : expectedAttrs.entrySet()) {
                     Object actual = acctAttrs.get(entry.getKey());
                     String expected = TestUtils.resolveSuffix(entry.getValue(), suffix);
@@ -252,11 +264,14 @@ public class IdentityTest extends BaseTest {
                             expected,
                             "Mismatch in " + type + " for attribute: " + entry.getKey()
                                     + " on identity: " + ctx.identityKey);
+                    attrCount++;
                 }
+                Reporter.log("  [verifyAccounts] App: " + expectedApp + " (" + attrCount + " attrs)");
             } else {
                 softAssert.assertNull(account,
                         "Account should NOT exist for type: " + type
                                 + " on identity: " + ctx.identityKey);
+                Reporter.log("  [verifyAccounts] App: " + expectedApp + " (should not exist)");
             }
         }
     }
@@ -303,27 +318,41 @@ public class IdentityTest extends BaseTest {
      * Verifies identity attributes from a SCIM GET response against properties
      * under the given expectedPrefix (e.g. "identity.user1.expected." or
      * "identity.user1.expectedAfterModify.").
+     *
+     * @return the number of attributes that were validated
      */
-    private void verifyIdentity(Response response, String identityKey, String expectedPrefix) {
+    private int verifyIdentity(Response response, String identityKey, String expectedPrefix) {
         String p = expectedPrefix;
+        int count = 0;
 
+        // Core SCIM attributes
+        if (ConfigManager.getOptional(p + "userName") != null) { count++; }
         TestUtils.verifyStringAttr(response, p + "userName", "userName", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "firstname") != null) { count++; }
         TestUtils.verifyStringAttr(response, p + "firstname", "name.givenName", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "lastname") != null) { count++; }
         TestUtils.verifyStringAttr(response, p + "lastname", "name.familyName", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "displayName") != null) { count++; }
         TestUtils.verifyStringAttr(response, p + "displayName", "displayName", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "userType") != null) { count++; }
         TestUtils.verifyStringAttr(response, p + "userType", "userType", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "email") != null) { count++; }
         TestUtils.verifyStringAttr(response, p + "email", "emails[0].value", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "active") != null) { count++; }
         TestUtils.verifyBooleanAttr(response, p + "active", "active", softAssert);
 
         // Enterprise extension — manager
         String ent = ScimSchemas.JSONPATH_ENTERPRISE;
+        if (ConfigManager.getOptional(p + "managerValue") != null) { count++; }
         TestUtils.verifyStringAttr(response, p + "managerValue", ent + "manager.value", suffix, softAssert);
+        if (ConfigManager.getOptional(p + "managerDisplayName") != null) { count++; }
         TestUtils.verifyStringAttr(response, p + "managerDisplayName", ent + "manager.displayName", suffix, softAssert);
 
         // SailPoint extension — dynamically verified from expected properties
         String sp = ScimSchemas.JSONPATH_SAILPOINT;
         String spPrefix = p + "sailpoint.";
         Map<String, String> spExpected = ConfigManager.getByPrefix(spPrefix);
+        count += spExpected.size();
         for (Map.Entry<String, String> entry : spExpected.entrySet()) {
             String rawAttrName = entry.getKey();
             boolean isArray = rawAttrName.endsWith("[]");
@@ -336,5 +365,6 @@ public class IdentityTest extends BaseTest {
             softAssert.assertEquals(actual, TestUtils.resolveSuffix(expectedValue, suffix),
                     "Mismatch for sailpoint." + attrName + " on: " + identityKey);
         }
+        return count;
     }
 }

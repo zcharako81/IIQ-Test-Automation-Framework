@@ -53,6 +53,12 @@ The framework currently covers identity lifecycle testing via SCIM APIs:
 - Dynamic SailPoint extension attributes (zero Java changes)
 - Configurable suffix for uniqueness across test runs
 - 100% config-driven — no code changes needed for test scenarios
+- **JSON data file support** — `identity.json` as a structured alternative to `identity.properties`, selected via `identity.data.source=json` in `config.properties` (no classpath auto-detection)
+- **Consistent phase↔section naming** — data sections `expectedCreate`/`expectedModify` align with phase names `verifyCreate`/`verifyModify`; no more confusion between `verifyCreate` → `expected` or `verifyModify` → `expectedAfterModify`
+- **Roles merged into verifyCreate/verifyModify** — `verifyRoles` phase removed; role verification with polling is now part of `doVerifyIdentity`; roles are read from the section's `.roles` field (JSON) or from `expectedCreate.roles` (properties)
+- **Accounts merged into expectedCreate/expectedModify** — `verifyAccounts` phase removed; accounts live inside each `IdentitySection` (`expectedCreate.accounts`, `expectedModify.<qual>.accounts`); account verification is now part of `doVerifyIdentity` alongside attribute and role checks
+- **Unified `expectedModify` map** — single `Map<String, IdentitySection>` field replaces the previous two-field split (`expectedModify` + `expectedModifyQualified`); unqualified modify uses key `""`, multi-round uses `"1"`, `"2"`, etc.
+- **SCIM PATCH partial modify** — modify only single attributes using sparse change data in `modify` section, applied via RFC 7644 PATCH (JSON source only; properties source falls back to PUT)
 
 ---
 
@@ -92,7 +98,7 @@ Framework-level enhancements that benefit all feature areas.
 | **Parallel execution** | Run multiple identity lifecycles concurrently for soak and performance testing |
 | **CI/CD integration** | Jenkins pipeline templates, GitHub Actions workflows for automated regression runs |
 | **OAuth2 authentication** | Support OAuth 2.0 client credentials alongside basic auth |
-| **Data-driven test sources** | JSON, YAML, or CSV test data files as an alternative to properties |
+| **Data-driven test sources** | ~~JSON~~ (done), YAML or CSV test data files as an alternative to properties |
 | **HTML reporting** | Structured test execution reports with pass/fail summaries and trends |
 | **Configuration validation** | Automated validation of IIQ setup (build maps, correlation rules, transforms) |
 

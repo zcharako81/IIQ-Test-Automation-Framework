@@ -1,0 +1,236 @@
+{
+  "identities": {
+    "user1": {
+      "tests": [
+        "create",
+        "task:RefreshIdentitySingle",
+        "task:LdapAccountAggregation"
+		  ],
+      "create": {
+        "userName": "john.doe",
+        "firstname": "John",
+        "lastname": "Doe",
+        "displayName": "John Doe",
+        "email": "john.doe@acme.com",
+        "userType": "employee",
+        "managerValue": "ac10c6819cc4176a819cc468045e00fe",
+        "managerDisplayName": "The Administrator",
+        "active": true,
+        "sailpoint": {
+          "title": "Software Engineer",
+          "department": "Engineering",
+          "location": "New York",
+          "Identity_End_Date": "2027-12-31",
+          "capabilities": [
+            "Auditor",
+            "Role Administrator"
+          ]
+        }
+      },
+      "expectedCreate": {
+        "userName": "john.doe.{suffix}",
+        "firstname": "John",
+        "lastname": "Doe",
+        "displayName": "John Doe",
+        "email": "{suffix}.john.doe@acme.com",
+        "userType": "employee",
+        "managerValue": "ac10c6819cc4176a819cc468045e00fe",
+        "managerDisplayName": "The Administrator",
+        "active": true,
+        "sailpoint": {
+          "title": "Software Engineer",
+          "department": "Engineering",
+          "location": "New York",
+          "Identity_End_Date": "2027-12-31",
+          "capabilities": [
+            "Auditor",
+            "Role Administrator"
+          ]
+        },
+        "roles": [
+          "ALL_ACTIVE_USERS",
+          "LDAP_ALL_USERS"
+        ],
+        "accounts": {
+          "ldap": {
+            "application": "LDAP-Test",
+            "expected": {
+              "exists": true,
+              "attributes": {
+                "uid": "john.doe.{suffix}",
+                "cn": "john.doe.{suffix}",
+                "givenName": "John",
+                "sn": "Doe"
+              }
+            }
+          },
+          "ad": {
+            "application": "ActiveDirectory-Test",
+            "expected": {
+              "exists": false,
+              "attributes": {
+                "displayName": "John Doe",
+                "givenName": "John",
+                "mail": "{suffix}.john.doe@acme.com",
+                "sAMAccountName": "john.doe.{suffix}",
+                "sn": "Doe",
+                "userAccountControl": "512",
+                "userPrincipalName": "john.doe.{suffix}@acme.com"
+              }
+            }
+          },
+          "scim": {
+            "application": "SCIM-Test",
+            "expected": {
+              "exists": false,
+              "attributes": {
+                "active": "true",
+                "displayName": "John Doe",
+                "familyName": "Doe",
+                "givenName": "John",
+                "mail": "{suffix}.john.doe@acme.com",
+                "userName": "john.doe.{suffix}"
+              }
+            }
+          }
+        }
+      },
+      "modify": {
+        "1": {
+          "displayName": "John Doe PATCHED",
+          "sailpoint": {
+            "title": "Senior Software Engineer",
+            "Identity_End_Date": "2029-12-31",
+            "capabilities": [
+              "Auditor",
+              "Rule Administrator"
+            ]
+          }
+        }
+      },
+      "expectedModify": {
+        "1": {
+          "userName": "john.doe.{suffix}",
+          "firstname": "John",
+          "lastname": "Doe",
+          "displayName": "John Doe PATCHED",
+          "email": "{suffix}.john.doe@acme.com",
+          "userType": "employee",
+          "managerValue": "ac10c6819cc4176a819cc468045e00fe",
+          "managerDisplayName": "The Administrator",
+          "active": true,
+          "sailpoint": {
+            "title": "Senior Software Engineer",
+            "department": "Engineering",
+            "location": "New York",
+            "Identity_End_Date": "2029-12-31",
+            "capabilities": [
+              "Auditor",
+              "Rule Administrator"
+            ]
+          },
+          "accounts": {
+            "ad": {
+              "application": "ActiveDirectory-Test",
+              "expected": {
+                "exists": false,
+                "attributes": {
+                  "displayName": "John Doe",
+                  "givenName": "John",
+                  "mail": "{suffix}.john.doe@acme.com",
+                  "sAMAccountName": "john.doe.{suffix}",
+                  "sn": "Doe",
+                  "userAccountControl": "512",
+                  "userPrincipalName": "john.doe.{suffix}@acme.com"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "user2": {
+      "tests": [
+        "create",
+		"task:RefreshIdentitySingle",
+       	"task:LdapAccountAggregation",
+        "verifyCreate",
+        "delete"
+      ],
+      "modify": {
+        "": {
+          "displayName": "Jane Smith PATCHED",
+          "sailpoint": {
+            "title": "Senior Marketing Manager"
+          }
+        }
+      },
+      "expectedCreate": {
+        "userName": "jane.smith.{suffix}",
+        "firstname": "Jane",
+        "lastname": "Smith",
+        "displayName": "Jane Smith",
+        "email": "{suffix}.jane.smith@acme.com",
+        "userType": "employee",
+        "managerValue": "ac10c6819cc4176a819cc468045e00fe",
+        "managerDisplayName": "The Administrator",
+        "active": true,
+        "sailpoint": {
+          "title": "Marketing Manager",
+          "department": "Marketing",
+          "location": "Chicago"
+        },
+        "roles": [
+          "ALL_ACTIVE_USERS"
+        ],
+        "accounts": {
+          "ldap": {
+            "application": "LDAP-Test",
+            "expected": {
+              "exists": true,
+              "attributes": {
+                "uid": "jane.smith.{suffix}",
+                "cn": "jane.smith.{suffix}",
+                "givenName": "Jane",
+                "sn": "Smith"
+              }
+            }
+          }
+        }
+      },
+      "expectedModify": {
+        "": {
+          "userName": "jane.smith.{suffix}",
+          "lastname": "Smith",
+          "displayName": "Jane Smith PATCHED",
+          "email": "{suffix}.jane.smith@acme.com",
+          "userType": "employee",
+          "managerValue": "ac10c6819cc4176a819cc468045e00fe",
+          "managerDisplayName": "The Administrator",
+          "active": true,
+          "sailpoint": {
+            "title": "Senior Marketing Manager",
+            "department": "Marketing",
+            "location": "Chicago"
+          }
+        }
+      },
+      "create": {
+        "userName": "jane.smith",
+        "firstname": "Jane",
+        "lastname": "Smith",
+        "displayName": "Jane Smith",
+        "email": "jane.smith@acme.com",
+        "userType": "employee",
+        "managerValue": "ac10c6819cc4176a819cc468045e00fe",
+        "managerDisplayName": "The Administrator",
+        "active": true,
+        "sailpoint": {
+          "title": "Marketing Manager",
+          "department": "Marketing",
+          "location": "Chicago"
+        }
+      }
+    }
+  }
+}

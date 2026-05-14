@@ -4,6 +4,8 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import factory.IdentityDataProvider;
+
 public class ConfigManager {
 
     private static final Properties config = new Properties();
@@ -22,6 +24,8 @@ public class ConfigManager {
                 .getResourceAsStream(fileName)) {
 
             if (is == null) {
+                // identity.properties is optional — JSON may be the data source
+                if ("identity.properties".equals(fileName)) return;
                 throw new RuntimeException("Could not find properties file: " + fileName);
             }
 
@@ -30,6 +34,22 @@ public class ConfigManager {
         } catch (Exception e) {
             throw new RuntimeException("Failed to load properties file: " + fileName, e);
         }
+    }
+
+    /**
+     * Returns the configured identity data source.
+     * <p>
+     * Reads {@code identity.data.source} from config.properties.
+     * Supported values:
+     * <ul>
+     *   <li>{@code json} — load from {@code identity.json}</li>
+     *   <li>{@code properties} — load from {@code identity.properties}</li>
+     * </ul>
+     * Default is {@code properties} (backward compatible).
+     */
+    public static String getIdentityDataSource() {
+        String value = getOptional("identity.data.source");
+        return value != null ? value.trim() : "properties";
     }
 
     // -----------------------------------------------------
@@ -76,69 +96,42 @@ public class ConfigManager {
         return "true".equalsIgnoreCase(getOptional("logging.enabled"));
     }
 
-    public static List<String> getIdentityKeys() {
-        String value = getOptional("identities");
-        if (value == null || value.trim().isEmpty()) {
-            return List.of();
-        }
-        return Arrays.stream(value.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toList());
-    }
-
     /**
-     * Default ordered lifecycle phases (backward compatible with old dependsOnMethods chain).
+     * Returns the list of configured identity keys.
+     * Delegates to {@link IdentityDataProvider} which loads from
+     * the source specified by {@code identity.data.source} in config.properties.
      */
-    private static final List<String> DEFAULT_PHASES = List.of(
-            "create", "verifyCreate", "verifyRoles",
-            "verifyAccounts", "modify", "verifyModify", "deleteAccounts", "delete"
-    );
+    public static List<String> getIdentityKeys() {
+        return IdentityDataProvider.getIdentityKeys();
+    }
 
     /**
      * Returns the ordered list of test phases to execute for a given identity key.
-     * If the property is absent or empty, returns the default lifecycle order.
-     * Duplicates are preserved, allowing phases to repeat.
-     * Example: identity.user1.tests=create,task:RefreshIdentitySingle,verifyCreate,modify,verifyModify,verifyAccounts,delete
+     * Delegates to {@link IdentityDataProvider}.
      */
     public static List<String> getIdentityTests(String identityKey) {
-        String value = getOptional("identity." + identityKey + ".tests");
-        if (value == null || value.trim().isEmpty()) {
-            return DEFAULT_PHASES;
-        }
-        return Arrays.stream(value.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toList());
+        return IdentityDataProvider.getIdentityTests(identityKey);
     }
 
+    /**
+     * Returns the list of expected birthright roles for an identity.
+     * Delegates to {@link IdentityDataProvider}.
+     */
     public static List<String> getIdentityExpectedRoles(String identityKey) {
-        return getList("identity." + identityKey + ".expected.roles");
+        return IdentityDataProvider.getIdentityExpectedRoles(identityKey);
     }
 
     /**
      * Returns the account types for an identity, optionally qualified.
-     * No qualifier: reads from {@code identity.<key>.accounts}.
-     * With qualifier: reads from {@code identity.<key>.accounts.<qualifier>}.
-     * Example: qualifier="1" → {@code identity.user1.accounts.1}
+     * Delegates to {@link IdentityDataProvider}.
      */
     public static List<String> getAccountTypes(String identityKey, String qualifier) {
-        String propKey = qualifier.isEmpty()
-                ? "identity." + identityKey + ".accounts"
-                : "identity." + identityKey + ".accounts." + qualifier;
-        String value = getOptional(propKey);
-        if (value == null || value.trim().isEmpty()) {
-            return List.of();
-        }
-        return Arrays.stream(value.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toList());
+        return IdentityDataProvider.getAccountTypes(identityKey, qualifier);
     }
 
     /**
      * Returns expected account attributes for an identity+type (no qualifier — backward compatible).
-     * Reads from {@code identity.<key>.account.<type>.expected.attributes.} prefix.
+     * Delegates to {@link IdentityDataProvider}.
      */
     public static Map<String, String> getAccountExpectedAttributes(String identityKey, String type) {
         return getAccountExpectedAttributes(identityKey, type, "");
@@ -146,19 +139,15 @@ public class ConfigManager {
 
     /**
      * Returns expected account attributes for an identity+type, optionally qualified.
-     * No qualifier: prefix is {@code identity.<key>.account.<type>.expected.attributes.}.
-     * With qualifier: prefix is {@code identity.<key>.account.<qualifier>.<type>.expected.attributes.}.
+     * Delegates to {@link IdentityDataProvider}.
      */
     public static Map<String, String> getAccountExpectedAttributes(String identityKey, String type, String qualifier) {
-        String prefix = qualifier.isEmpty()
-                ? "identity." + identityKey + ".account." + type + ".expected.attributes."
-                : "identity." + identityKey + ".account." + qualifier + "." + type + ".expected.attributes.";
-        return getByPrefix(prefix);
+        return IdentityDataProvider.getAccountExpectedAttributes(identityKey, type, qualifier);
     }
 
     /**
      * Returns the application name for an account type (no qualifier — backward compatible).
-     * Reads from {@code identity.<key>.account.<type>.application}.
+     * Delegates to {@link IdentityDataProvider}.
      */
     public static String getAccountApplication(String identityKey, String type) {
         return getAccountApplication(identityKey, type, "");
@@ -166,19 +155,15 @@ public class ConfigManager {
 
     /**
      * Returns the application name for an account type, optionally qualified.
-     * No qualifier: reads from {@code identity.<key>.account.<type>.application}.
-     * With qualifier: reads from {@code identity.<key>.account.<qualifier>.<type>.application}.
+     * Delegates to {@link IdentityDataProvider}.
      */
     public static String getAccountApplication(String identityKey, String type, String qualifier) {
-        String propKey = qualifier.isEmpty()
-                ? "identity." + identityKey + ".account." + type + ".application"
-                : "identity." + identityKey + ".account." + qualifier + "." + type + ".application";
-        return get(propKey);
+        return IdentityDataProvider.getAccountApplication(identityKey, type, qualifier);
     }
 
     /**
      * Returns the exists flag for an account type (no qualifier — backward compatible).
-     * Reads from {@code identity.<key>.account.<type>.expected.exists}.
+     * Delegates to {@link IdentityDataProvider}.
      */
     public static String getAccountExists(String identityKey, String type) {
         return getAccountExists(identityKey, type, "");
@@ -186,15 +171,10 @@ public class ConfigManager {
 
     /**
      * Returns the exists flag for an account type, optionally qualified.
-     * No qualifier: reads from {@code identity.<key>.account.<type>.expected.exists}.
-     * With qualifier: reads from {@code identity.<key>.account.<qualifier>.<type>.expected.exists}.
+     * Delegates to {@link IdentityDataProvider}.
      */
     public static String getAccountExists(String identityKey, String type, String qualifier) {
-        String propKey = qualifier.isEmpty()
-                ? "identity." + identityKey + ".account." + type + ".expected.exists"
-                : "identity." + identityKey + ".account." + qualifier + "." + type + ".expected.exists";
-        String value = getOptional(propKey);
-        return value != null ? value : "false";
+        return IdentityDataProvider.getAccountExists(identityKey, type, qualifier);
     }
     public static Map<String, String> getByPrefix(String prefix) {
         Map<String, String> result = new HashMap<>();
