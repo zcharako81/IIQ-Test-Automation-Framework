@@ -271,39 +271,100 @@ If `.tests` is absent, the full default lifecycle above runs. Phases can be repe
 
 ---
 
-## 📊 Enhanced Phase Detail Reporting (v1.2.0+)
+## 📊 HTML Report — `emailable-report.html` (v1.2.0+)
 
-Starting with version 1.2.0, each verify phase emits a detail line in the TestNG `Reporter.log` output, indicating exactly what was checked:
+After every test run the framework generates a standalone HTML report at `test-output/emailable-report.html`. The report is structured as follows:
+
+### Header & Summary
+
+The top of the report shows the overall test status, timestamps, suffix, and summary cards:
 
 ```
-=== Starting identity lifecycle (suffix: 1747234800000) ===
-...
-=== Identity: user1 (6 phases) ===
-  Phase: task:RefreshIdentitySingle -> 4231ms
-  [verifyIdentity] Attributes checked: 8          ← core + sailpoint attrs
-  Phase: verifyCreate -> 312ms
-  [verifyRoles] Expected: [ALL_ACTIVE_USERS] matched 1/1
-  Phase: verifyRoles -> 215ms
-  [verifyAccounts] App: LDAP-Test (4 attrs)       ← per-application attribute count
-  Phase: verifyAccounts -> 487ms
-  Phase: modify -> 134ms
-  [verifyIdentity] Attributes checked: 9          ← modify round (includes extra attrs)
-  Phase: verifyModify -> 298ms
-  Phase: deleteAccounts -> 321ms
-  Phase: delete -> 98ms
-=== Identity: user1 complete ===
-=== All phases completed in 18730ms ===
+┌──────────────────────────────────────────────────────────────────┐
+│  ✅ Identity Lifecycle Report                                    │
+│  PASSED  |  2 identities  |  Total: 18.7s  |  2026-05-14 12:34  │
+└──────────────────────────────────────────────────────────────────┘
+┌──────────┬──────────┬──────────┬──────────┐
+│ Identities│  Passed  │  Failed  │ Duration │
+│     2     │    2     │    0     │  18.7s   │
+└──────────┴──────────┴──────────┴──────────┘
 ```
+
+### Per-Identity Cards
+
+Each identity is rendered as a card with a badge, phase count, and total duration:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  👤 user1                                    ✅ Passed           │
+│  6 phases  18.7s total                                         │
+├──────────────────────────────────────────────────────────────────┤
+│ Phase              Duration              Time        Status     │
+│ ──────────────────────────────────────────────────────────────── │
+│ ⚙️ task:Refresh    ████████████████    4.2s         ✅          │
+│ ✅ verifyCreate    ██████              312ms        ✅          │
+│   ▶ 📋 Attributes checked: 8                                   │
+│   ▶ 🏆 Roles: [ALL_ACTIVE_USERS] matched 1/1                   │
+│   ▶ 🔗 App: LDAP-Test (4 attrs)                                │
+│ ✏️ modify          ███                 134ms        ✅          │
+│ ✅ verifyModify    ██████              298ms        ✅          │
+│   ▶ 📋 Attributes checked: 9                                   │
+│ ➖ deleteAccounts  ██████              321ms        ✅          │
+│ ➖ delete          ██                  98ms         ✅          │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+Each phase has:
+- **Icon** — ⚙️ task, ✅ verify, ✏️ modify, ➕ create, ➖ delete
+- **Duration bar** — proportional to the longest phase
+- **Status** — ✅ phase passed or ❌ assertion failure detected
+- **Expandable detail sections** — click to reveal attributes, roles, and account attributes
+
+### Expandable Detail Sections
+
+Click each detail summary to expand:
+
+| Section | Icon | Content |
+|---|---|---|
+| `Attributes checked: N` | 📋 | Key → value grid of every verified attribute |
+| `Roles: [...] matched M/N` | 🏆 | Bullet list of expected roles with ✅/❌ per role |
+| `App: <name> (N attrs)` | 🔗 | Per-application attribute table (key → value) |
+| `App: <name> (should not exist)` | 🔗 | Indicates the account was expected to be absent |
+
+### Failure Reporting
+
+When `SoftAssert` assertions fail, the report automatically captures the failure:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  👤 user1                                    ❌ Failed           │
+├──────────────────────────────────────────────────────────────────┤
+│  ❌ Test Assertions Failed                                       │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ The following asserts failed:                             │   │
+│  │   Mismatch: displayName on: user1 expected [John Doe      │   │
+│  │   PATCHED] but found [Jane Doe]                           │   │
+│  └──────────────────────────────────────────────────────────┘   │
+├──────────────────────────────────────────────────────────────────┤
+│ Phase              Duration              Time        Status     │
+│ ✅ verifyCreate    ██████              312ms        ❌          │
+│ ...                                                             │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+- **Red error box** appears between the identity header and the phase table
+- Error message is shown with monospace formatting; long messages are truncated with a *Show full failure details* expansion link
+- The **Status column** marks the relevant verify phase with ❌ by classifying the failed attribute (identity, role, or account)
+- Only the identity whose key appears in the assertion error message is marked failed — other identities remain ✅ Passed
 
 ### Detail line format by phase
 
 | Phase | Detail line | Example |
 |---|---|---|
-| `verifyCreate` | `[verifyIdentity] Attributes checked: <N>` | `[verifyIdentity] Attributes checked: 8` |
-| `verifyModify` | `[verifyIdentity] Attributes checked: <N>` | `[verifyIdentity] Attributes checked: 9` |
-| `verifyRoles` | `[verifyRoles] Expected: [<roles>] matched <M>/<N>` | `[verifyRoles] Expected: [ALL_ACTIVE_USERS] matched 1/1` |
-| `verifyAccounts` | `[verifyAccounts] App: <app> (<N> attrs)` | `[verifyAccounts] App: LDAP-Test (4 attrs)` |
-| `verifyAccounts` (not exists) | `[verifyAccounts] App: <app> (should not exist)` | `[verifyAccounts] App: LDAP-Test (should not exist)` |
+| `verifyCreate` / `verifyModify` | `[verifyIdentity] Attributes checked: <N>` | `[verifyIdentity] Attributes checked: 8` |
+| *(nested inside verify phase)* | `[verifyRoles] Expected: [<roles>] matched <M>/<N>` | `[verifyRoles] Expected: [ALL_ACTIVE_USERS] matched 1/1` |
+| *(nested inside verify phase)* | `[verifyAccounts] App: <app> (<N> attrs)` | `[verifyAccounts] App: LDAP-Test (4 attrs)` |
+| *(not exists)* | `[verifyAccounts] App: <app> (should not exist)` | `[verifyAccounts] App: LDAP-Test (should not exist)` |
 
 This makes it easy to verify at a glance which attributes were tested, which roles matched, and which applications were validated — without scrolling through raw JSON responses.
 
