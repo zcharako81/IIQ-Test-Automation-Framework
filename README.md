@@ -59,11 +59,6 @@ src/test/iiq
 - **All tests are defined in `identity.json`**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, and account attributes — is configured in a single JSON data file. No Java code changes are needed to define or modify test cases.
 - **Define your test scenario**: Start by listing your test identities under the `identities` key. For each identity, provide create attributes, expected values, expected roles, and account validations. Everything is driven by conventions documented below.
 - **Phase list**: Define the identity lifecycle via the `tests` array. All tasks are launched via the unified `task:<taskName>` phase (e.g. `task:RefreshIdentitySingle`). The identity name is passed automatically as a workflow filter.
-- **Multi-identity mode**: Define identities via the `identities` key. Each identity gets its own set of create, expected, role, and account properties.
-- **Optional create phase**: If omitted, the framework looks up the identity by `userName` using a SCIM filter query (must already exist in IIQ).
-- **{suffix} placeholder**: Controlled by `test.suffix` in `config.properties`: `random` auto-generates a timestamp, a fixed value reuses a prior run's suffix, omitted uses values as-is.
-- **SailPoint extension attributes**: Add any IIQ or custom attribute inside the `"sailpoint": { ... }` block. Multi-value attributes use JSON arrays (e.g. `"capabilities": ["A", "B"]`). No Java code changes needed.
-- **Multiple roles**: Defined as a JSON array in the `"roles"` key within `expectedCreate` / `expectedModify` sections.
 - **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `Testng.xml`).
 
 ---
@@ -111,7 +106,7 @@ identity.data.source=json
 Define the identity lifecycle by listing phases in the `tests` array. Each phase executes sequentially; duplicates are allowed for multi-round scenarios.
 
 | Phase | Description |
-|---|---|---|
+|---|---|
 | `create` | Creates the identity via `POST /scim/v2/Users` using the attributes from the `create` section |
 | `task:<taskName>` | Launches the `My-WF-TaskLauncher` workflow for the specified IIQ task (e.g. `task:RefreshIdentitySingle`). The identity name is passed automatically as a task filter. Waits for completion and asserts `Success`. |
 | `verifyCreate` | Fetches the identity via `GET /scim/v2/Users/{id}` and asserts all core, enterprise, and SailPoint extension attributes match `expectedCreate`; also verifies `roles` and `accounts` from the same section (with polling for roles) |
@@ -119,32 +114,6 @@ Define the identity lifecycle by listing phases in the `tests` array. Each phase
 | `verifyModify` | Fetches the identity and asserts attributes match the corresponding `expectedModify` section (`verifyModify:1` → `expectedModify.1`); also verifies accounts from the same section |
 | `deleteAccounts` | Fetches all account references and deletes each via its `$ref` URL |
 | `delete` | Deletes the identity via `DELETE /scim/v2/Users/{id}` |
-
-### Account validation flow
-
-1. `GET /Users/{id}?attributes=...accounts` — returns account references
-2. For each reference, `GET $ref` — fetches the Account resource including `application.displayName` and schema-specific attributes
-3. Match by `application.displayName` against the expected application name
-4. Validate expected attributes against the schema-specific nested map
-
-### Modify lifecycle
-
-The framework modifies identities via **SCIM PATCH** and re-verifies:
-
-```
-verifyAccounts → modify → verifyModify → deleteAccounts
-```
-
-The `modify` section contains only the changed attributes (PATCH semantics), while `expectedModify` must contain the full expected state after modification (PUT semantics).
-
-```json
-"modify": {
-  "1": {
-    "displayName": "John Doe PATCHED",
-    "sailpoint": { "title": "Senior Software Engineer" }
-  }
-}
-```
 
 ---
 
@@ -171,7 +140,7 @@ When `identity.data.source=json` is set in `config.properties`, test data is loa
           "title": "Software Engineer",
           "department": "Engineering",
           "location": "New York",
-          "capabilities": ["Auditor", "Role Administrator"]
+          "capabilities": ["Auditor", "RoleAdministrator"]
         }
       },
       "expectedCreate": {
@@ -185,7 +154,8 @@ When `identity.data.source=json` is set in `config.properties`, test data is loa
         "sailpoint": {
           "title": "Software Engineer",
           "department": "Engineering",
-          "location": "New York"
+          "location": "New York",
+          "capabilities": ["Auditor", "RoleAdministrator"]
         },
         "roles": ["ALL_ACTIVE_USERS", "LDAP_ALL_USERS"],
         "accounts": {
@@ -259,32 +229,6 @@ Any `sailpoint.*` block is optional; omit it and the framework skips the SailPoi
 
 > **Note on unqualified modify**: In JSON, unqualified modify uses key `""` (empty string), while qualified rounds use `"1"`, `"2"`, etc. The `modify` section contains only the changed attributes (PATCH semantics), while `expectedModify` must contain the full expected state after modification (PUT semantics).
 
-### Account validation flow
-
-1. `GET /Users/{id}?attributes=...accounts` — returns account references
-2. For each reference, `GET $ref` — fetches the Account resource including `application.displayName` and schema-specific attributes
-3. Match by `application.displayName` against the expected application name
-4. Validate expected attributes against the schema-specific nested map
-
-### Modify lifecycle
-
-The framework modifies identities via **SCIM PATCH** and re-verifies:
-
-```
-modify → verifyModify → deleteAccounts
-```
-
-The `modify` section contains only the changed attributes (PATCH semantics), while `expectedModify` must contain the full expected state after modification (PUT semantics).
-
-```json
-"modify": {
-  "1": {
-    "displayName": "John Doe PATCHED",
-    "sailpoint": { "title": "Senior Software Engineer" }
-  }
-}
-```
-
 ---
 
 ## 📐 API Contract Constants — `base/ScimSchemas.java`
@@ -324,14 +268,6 @@ create → verifyCreate  → modify → verifyModify → deleteAccounts → dele
 ```
 
 If `.tests` is absent, the full default lifecycle above runs. Phases can be repeated; duplicates allowed.
-
-### Qualified phases
-
-| Phase | Qualifier | Purpose |
-|---|---|---|
-| `task:<taskName>` | IIQ task name (e.g. `RefreshIdentitySingle`) | Run any IIQ task by name. The current identity is passed as a filter. |
-| `modify:<N>`, `verifyModify:<N>` | Numeric index | Multi-round modify — maps to `expectedModify.<N>.*` |
-| `verifyAccounts:<N>` | Numeric index | Account re-verification per round — maps to `accounts.N` / `account.N.<type>.*` |
 
 ---
 
