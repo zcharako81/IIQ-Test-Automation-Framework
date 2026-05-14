@@ -60,8 +60,12 @@ src/test/iiq
 ## 👉 Instructions
 
 - **Prerequisite**: Workflow `My-WF-TaskLauncher` must be imported into IIQ before test execution.
-- **All tests are defined in `identity.json`**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, and account attributes — is configured in a single data file. No Java code changes are needed to define or modify test cases.
+- **All tests are defined in `identity.json` (preferred) or `identity.properties` (legacy)**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, and account attributes — is configured in a single data file. No Java code changes are needed to define or modify test cases.
 - **Define your test scenario**: Start by listing your test identities under the `identities` key. For each identity, provide create attributes, expected values, expected roles, and account validations. Everything is driven by conventions documented below.
+- **Data source selection**: Controlled by `identity.data.source` in `config.properties`:
+  - `json` (recommended) — load from `identity.json` (structured JSON, supports SCIM PATCH)
+  - `properties` (legacy) — load from `identity.properties` (flat format, SCIM PUT only)
+  - Default is `properties` for backward compatibility.
 - **Phase list**: Define the identity lifecycle via `.tests` array (JSON). All tasks are launched via the unified `task:<taskName>` phase (e.g. `task:RefreshIdentitySingle`, `task:LdapAccountAggregation`). The identity name is passed automatically as a workflow filter.
 - **Multi-identity mode**: Define identities via the `identities` key. Each identity gets its own set of create, expected, role, and account properties.
 - **Optional create phase**: If omitted, the framework looks up the identity by `userName` using a SCIM filter query (must already exist in IIQ).
@@ -74,14 +78,13 @@ src/test/iiq
 
 ## ⚙️ Configuration
 
-All configuration is driven by two properties files loaded in order (later wins on key collision):
+Identity test data is defined in **`identity.json`** (preferred) or **`identity.properties`** (legacy). Selection is controlled by `identity.data.source` in `config.properties`:
 
 | File | Purpose |
 |---|---|
 | `config.properties` | IIQ URL, auth, timeouts, logging, suffix |
-| `identity.properties` | Identity input + expected attributes, roles, and **per-identity account validation** | `Lagacy input config file`
-
-When `identity.data.source=json` is set in `config.properties`, identity test data is loaded from `identity.json` instead of `identity.properties`. The JSON format is structured, supports SCIM PATCH for partial modify, and nests attributes per identity section.
+| `identity.json` _(preferred)_ | Identity test data — structured JSON, supports SCIM PATCH |
+| `identity.properties` _(legacy)_ | Identity test data — flat properties format, SCIM PUT only |
 
 ### Global config (`config.properties`)
 
@@ -113,62 +116,11 @@ test.suffix=random
 identity.data.source=properties
 ```
 
-### Identity + Account test data (`identity.properties`)
+### Identity test data — legacy `identity.properties` format
 
-```
-# List of identity keys for multi-identity mode (required)
-identities=user1,user2
+> **`identity.properties` is the legacy format.** It is still supported but **`identity.json` is the recommended format** (see JSON Data Source section below). The properties format uses **SCIM PUT** for modify operations and requires a full attribute snapshot for each section. Existing `.properties` files continue to work with no changes required.
 
-# Per-identity phase list (absent = run all default phases)
-identity.user1.tests=create,task:RefreshIdentitySingle,\
-  task:LdapAccountAggregation,verifyCreate,verifyRoles,\
-  verifyAccounts,modify:1,verifyModify:1,\
-  verifyAccounts:1,deleteAccounts,delete
-
-# --- Identity: user1 ---
-identity.user1.create.userName=john.doe
-identity.user1.create.firstname=John
-identity.user1.create.lastname=Doe
-identity.user1.create.displayName=John Doe
-identity.user1.create.email=john.doe@acme.com
-identity.user1.create.userType=employee
-identity.user1.create.active=true
-identity.user1.create.sailpoint.title=Software Engineer
-identity.user1.create.sailpoint.department=Engineering
-identity.user1.create.sailpoint.location=New York
-identity.user1.create.sailpoint.capabilities[]=Auditor,Role Administrator
-
-identity.user1.expectedCreate.userName=john.doe.{suffix}
-identity.user1.expectedCreate.firstname=John
-identity.user1.expectedCreate.lastname=Doe
-identity.user1.expectedCreate.email={suffix}.john.doe@acme.com
-identity.user1.expectedCreate.userType=employee
-identity.user1.expectedCreate.sailpoint.title=Software Engineer
-identity.user1.expectedCreate.sailpoint.department=Engineering
-identity.user1.expectedCreate.sailpoint.location=New York
-identity.user1.expectedCreate.sailpoint.capabilities[]=Auditor,Role Administrator
-identity.user1.expectedCreate.roles=ALL_ACTIVE_USERS,ANOTHER_ROLE
-
-# Per-identity account validation
-identity.user1.accounts=ldap
-identity.user1.account.ldap.application=LDAP-Test
-identity.user1.account.ldap.expected.exists=true
-identity.user1.account.ldap.expected.attributes.uid=john.doe.{suffix}
-identity.user1.account.ldap.expected.attributes.cn=john.doe.{suffix}
-identity.user1.account.ldap.expected.attributes.givenName=John
-identity.user1.account.ldap.expected.attributes.sn=Doe
-```
-
-### Attribute schema split — `.create.*` vs `.create.sailpoint.*`
-
-Attributes map to different SCIM JSON namespaces:
-
-| Prefix | SCIM Schema | Java handling |
-|---|---|---|
-| `.create.<attr>` | `urn:ietf:params:scim:schemas:core:2.0:User` + enterprise extension | Compiled POJO fields (`userName`, `name`, `displayName`, `userType`, `emails`, `active`, `manager`) |
-| `.create.sailpoint.<attr>` | `urn:ietf:params:scim:schemas:sailpoint:1.0:User` | Generic `Map<String, Object>` — adding attributes requires **zero Java changes** |
-
-Any `sailpoint.*` property is optional; skip the line and the framework omits it. Multi-value arrays use `[]` in the key name (e.g. `capabilities[]=val1,val2`).
+Open [`src/test/resources/identity.properties`](src/test/resources/identity.properties) for the legacy example syntax if needed.
 
 ### Account validation flow
 
@@ -179,26 +131,36 @@ Any `sailpoint.*` property is optional; skip the line and the framework omits it
 
 ### Modify lifecycle
 
-The framework modifies identities via **SCIM PUT** (`PUT /scim/v2/Users/{id}`) and re-verifies:
+The framework modifies identities via **SCIM PATCH** (JSON source) or **SCIM PUT** (properties source) and re-verifies:
 
 ```
 verifyAccounts → modify → verifyModify → deleteAccounts
 ```
 
-- **`.modify.*`** — Documents what changed (not read by Java).
-- **`.expectedModify.*`** — Full expected state after modification. Supports `{suffix}` and the same core/sailpoint schema split.
+- **`modify` section** (JSON) or **`.modify.*`** (properties) — Documents what changed.
+- **`expectedModify` section** (JSON) or **`.expectedModify.*`** (properties) — Full expected state after modification. Supports `{suffix}`.
 
-Example:
+**JSON source** (PATCH — only changed attributes needed):
+```json
+"modify": {
+  "1": {
+    "displayName": "John Doe PATCHED",
+    "sailpoint": { "title": "Senior Software Engineer" }
+  }
+}
 ```
-identity.user1.expectedModify.userName=john.doe.{suffix}
-identity.user1.expectedModify.displayName=John Doe PATCHED
-identity.user1.expectedModify.sailpoint.title=Senior Software Engineer
-identity.user1.expectedModify.sailpoint.Identity_End_Date=2029-12-31
+
+**Properties source** (PUT — full snapshot required):
+```
+identity.user1.expectedModify.1.userName=john.doe.{suffix}
+identity.user1.expectedModify.1.displayName=John Doe PATCHED
+identity.user1.expectedModify.1.sailpoint.title=Senior Software Engineer
+identity.user1.expectedModify.1.sailpoint.Identity_End_Date=2029-12-31
 ```
 
-### Multi-round modify + account verification
+### Multi-round modify + account verification (properties)
 
-Phases `modify`, `verifyModify`, and `verifyAccounts` support an optional colon qualifier for multiple rounds:
+Phases `modify`, `verifyModify`, and `verifyAccounts` support an optional colon qualifier for multiple rounds. The examples below use the legacy properties format; see the JSON Data Source section for the equivalent JSON structure.
 
 ```
 identity.user1.tests=...,modify:1,verifyModify:1,verifyAccounts:1,\
@@ -343,6 +305,17 @@ When `identity.data.source=json` is set in `config.properties`, test data is loa
 | `identities.<key>.modify."<qual>"` | modify section (SCIM PATCH payload) |
 | `identities.<key>.expectedModify."<qual>"` | `identity.<key>.expectedModify.<qual>.*` |
 | `identities.<key>.expectedModify."<qual>".accounts.<type>` | `identity.<key>.account.<qual>.<type>.*` |
+
+#### SCIM schema mapping
+
+Attributes inside `create` / `expectedCreate` / `expectedModify` sections map to different SCIM JSON namespaces:
+
+| JSON key | SCIM Schema | Java handling |
+|---|---|---|
+| `userName`, `firstname`, `lastname`, `displayName`, `userType`, `email`, `active`, `managerValue` | `urn:ietf:params:scim:schemas:core:2.0:User` + `enterprise` extension | Compiled POJO fields |
+| `sailpoint.*` (e.g. `sailpoint.title`, `sailpoint.department`) | `urn:ietf:params:scim:schemas:sailpoint:1.0:User` | `Map<String, Object>` — adding attributes requires **zero Java changes** |
+
+Any `sailpoint.*` block is optional; omit it and the framework skips the SailPoint extension entirely.
 
 > **Note on unqualified modify**: In JSON, unqualified modify uses key `""` (empty string), while qualified rounds use `"1"`, `"2"`, etc. The `modify` section contains only the changed attributes (PATCH semantics), while `expectedModify` must contain the full expected state after modification (PUT semantics).
 
