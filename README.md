@@ -26,7 +26,7 @@ Disclaimer: This project is an independent test automation framework and is not 
 | Build Tool      | Maven |
 | Test Framework  | TestNG |
 | API Testing     | REST-Assured |
-| Configuration   | Properties files / JSON |
+| Configuration   | JSON (properties legacy) |
 | Tested Against | SailPoint IdentityIQ 8.5 |
 ---
 
@@ -48,8 +48,7 @@ src/test/java
 │
 src/test/resources
 ├── config.properties    # Global test config (URL, auth, timeouts, data source)
-├── identity.properties  # Identity test data (legacy)
-├── identity.json        # Identity test data )
+├── identity.json        # Identity test data (JSON format, supports SCIM PATCH)
 │
 src/test/iiq
 │
@@ -60,31 +59,26 @@ src/test/iiq
 ## 👉 Instructions
 
 - **Prerequisite**: Workflow `My-WF-TaskLauncher` must be imported into IIQ before test execution.
-- **All tests are defined in `identity.json` (preferred) or `identity.properties` (legacy)**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, and account attributes — is configured in a single data file. No Java code changes are needed to define or modify test cases.
+- **All tests are defined in `identity.json`**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, and account attributes — is configured in a single JSON data file. No Java code changes are needed to define or modify test cases.
 - **Define your test scenario**: Start by listing your test identities under the `identities` key. For each identity, provide create attributes, expected values, expected roles, and account validations. Everything is driven by conventions documented below.
-- **Data source selection**: Controlled by `identity.data.source` in `config.properties`:
-  - `json` (recommended) — load from `identity.json` (structured JSON, supports SCIM PATCH)
-  - `properties` (legacy) — load from `identity.properties` (flat format, SCIM PUT only)
-  - Default is `properties` for backward compatibility.
-- **Phase list**: Define the identity lifecycle via `.tests` array (JSON). All tasks are launched via the unified `task:<taskName>` phase (e.g. `task:RefreshIdentitySingle`, `task:LdapAccountAggregation`). The identity name is passed automatically as a workflow filter.
+- **Phase list**: Define the identity lifecycle via the `tests` array. All tasks are launched via the unified `task:<taskName>` phase (e.g. `task:RefreshIdentitySingle`). The identity name is passed automatically as a workflow filter.
 - **Multi-identity mode**: Define identities via the `identities` key. Each identity gets its own set of create, expected, role, and account properties.
 - **Optional create phase**: If omitted, the framework looks up the identity by `userName` using a SCIM filter query (must already exist in IIQ).
 - **{suffix} placeholder**: Controlled by `test.suffix` in `config.properties`: `random` auto-generates a timestamp, a fixed value reuses a prior run's suffix, omitted uses values as-is.
-- **SailPoint extension attributes**: Add any IIQ or custom attribute via the `sailpoint.` prefix `"sailpoint": {"title": "Software Engineer"}` in JSON). Multi-value arrays use `[]` suffix in properties, or JSON arrays in JSON. No Java code changes needed.
-- **Multiple roles**: Defined as comma-separated values in `"roles": ["ROLE_A", "ROLE_B"]` in JSON.
+- **SailPoint extension attributes**: Add any IIQ or custom attribute inside the `"sailpoint": { ... }` block. Multi-value attributes use JSON arrays (e.g. `"capabilities": ["A", "B"]`). No Java code changes needed.
+- **Multiple roles**: Defined as a JSON array in the `"roles"` key within `expectedCreate` / `expectedModify` sections.
 - **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `Testng.xml`).
 
 ---
 
 ## ⚙️ Configuration
 
-Identity test data is defined in **`identity.json`** (preferred) or **`identity.properties`** (legacy). Selection is controlled by `identity.data.source` in `config.properties`:
+Identity test data is defined in **`identity.json`**. Selection is controlled by `identity.data.source` in `config.properties`:
 
 | File | Purpose |
 |---|---|
-| `config.properties` | IIQ URL, auth, timeouts, logging, suffix |
-| `identity.json` _(preferred)_ | Identity test data — structured JSON, supports SCIM PATCH |
-| `identity.properties` _(legacy)_ | Identity test data — flat properties format, SCIM PUT only |
+| `config.properties` | IIQ URL, auth, timeouts, logging, suffix, data source |
+| `identity.json` | Identity test data — structured JSON, supports SCIM PATCH |
 
 ### Global config (`config.properties`)
 
@@ -110,17 +104,10 @@ logging.enabled=false
 test.suffix=random
 
 # --- Identity data source ---
-#   json         → load test data from identity.json (JSON format, supports SCIM PATCH)
-#   properties   → load test data from identity.properties (flat format, SCIM PUT)
+#   json   → load test data from identity.json (recommended)
 # Default is 'properties' (backward compatible).
-identity.data.source=properties
+identity.data.source=json
 ```
-
-### Identity test data — legacy `identity.properties` format
-
-> **`identity.properties` is the legacy format.** It is still supported but **`identity.json` is the recommended format** (see JSON Data Source section below). The properties format uses **SCIM PUT** for modify operations and requires a full attribute snapshot for each section. Existing `.properties` files continue to work with no changes required.
-
-Open [`src/test/resources/identity.properties`](src/test/resources/identity.properties) for the legacy example syntax if needed.
 
 ### Account validation flow
 
@@ -131,16 +118,14 @@ Open [`src/test/resources/identity.properties`](src/test/resources/identity.prop
 
 ### Modify lifecycle
 
-The framework modifies identities via **SCIM PATCH** (JSON source) or **SCIM PUT** (properties source) and re-verifies:
+The framework modifies identities via **SCIM PATCH** and re-verifies:
 
 ```
 verifyAccounts → modify → verifyModify → deleteAccounts
 ```
 
-- **`modify` section** (JSON) or **`.modify.*`** (properties) — Documents what changed.
-- **`expectedModify` section** (JSON) or **`.expectedModify.*`** (properties) — Full expected state after modification. Supports `{suffix}`.
+The `modify` section contains only the changed attributes (PATCH semantics), while `expectedModify` must contain the full expected state after modification (PUT semantics).
 
-**JSON source** (PATCH — only changed attributes needed):
 ```json
 "modify": {
   "1": {
@@ -150,41 +135,11 @@ verifyAccounts → modify → verifyModify → deleteAccounts
 }
 ```
 
-**Properties source** (PUT — full snapshot required):
-```
-identity.user1.expectedModify.1.userName=john.doe.{suffix}
-identity.user1.expectedModify.1.displayName=John Doe PATCHED
-identity.user1.expectedModify.1.sailpoint.title=Senior Software Engineer
-identity.user1.expectedModify.1.sailpoint.Identity_End_Date=2029-12-31
-```
-
-### Multi-round modify + account verification (properties)
-
-Phases `modify`, `verifyModify`, and `verifyAccounts` support an optional colon qualifier for multiple rounds. The examples below use the legacy properties format; see the JSON Data Source section for the equivalent JSON structure.
-
-```
-identity.user1.tests=...,modify:1,verifyModify:1,verifyAccounts:1,\
-  modify:2,verifyModify:2,verifyAccounts:2,...
-
-identity.user1.expectedModify.1.lastname=Smith
-identity.user1.accounts.1=ldap
-identity.user1.account.1.ldap.expected.attributes.sn=Smith
-
-identity.user1.expectedModify.2.lastname=Jones
-identity.user1.accounts.2=ldap
-identity.user1.account.2.ldap.expected.attributes.sn=Jones
-```
-
-| Phase | Property prefix (no qualifier) | Property prefix (qualifier `N`) |
-|---|---|---|
-| `modify` / `verifyModify` | `identity.<key>.expectedModify.*` | `identity.<key>.expectedModify.N.*` |
-| `verifyAccounts` | `identity.<key>.accounts`, `account.<type>.*` | `identity.<key>.accounts.N`, `account.N.<type>.*` |
-
 ---
 
 ### JSON Data Source — `identity.json`
 
-When `identity.data.source=json` is set in `config.properties`, test data is loaded from `identity.json` instead of `identity.properties`. The JSON format is structured, supports SCIM PATCH for partial modify, and nests all attributes per identity.
+When `identity.data.source=json` is set in `config.properties`, test data is loaded from `identity.json`. The JSON format is structured, supports SCIM PATCH for partial modify, and nests all attributes per identity.
 
 #### JSON structure overview
 
@@ -280,19 +235,6 @@ When `identity.data.source=json` is set in `config.properties`, test data is loa
 }
 ```
 
-#### Key differences from the properties format
-
-| Aspect | Properties (`identity.properties`) | JSON (`identity.json`) |
-|---|---|---|
-| Section prefix | `identity.<key>.create.*` | `"create": { ... }` nested under `"identities"."<key>"` |
-| SailPoint attributes | `identity.<key>.create.sailpoint.<attr>=value` | `"sailpoint": { "<attr>": "value" }` |
-| Multi-value sailpoint | `identity.<key>.create.sailpoint.capabilities[]=A,B` | `"capabilities": ["A", "B"]` |
-| Roles | `identity.<key>.expectedCreate.roles=A,B` | `"roles": ["A", "B"]` inside `expectedCreate` |
-| Accounts | Separate `identity.<key>.accounts`, `account.<type>.*` keys | `"accounts": { "<type>": { ... } }` nested inside `expectedCreate` / `expectedModify` |
-| Modify data | Uses SCIM PUT — full snapshot required | Supports SCIM PATCH — only changed attributes needed |
-| Round qualifier | `identity.<key>.expectedModify.1.*` | `"expectedModify": { "1": { ... } }` |
-| Unqualified modify | `identity.<key>.expectedModify.*` | `"expectedModify": { "": { ... } }` |
-
 #### SCIM schema mapping
 
 Attributes inside `create` / `expectedCreate` / `expectedModify` sections map to different SCIM JSON namespaces:
@@ -338,7 +280,7 @@ Or via TestNG suite:
 mvn test -DsuiteXmlFile=Testng.xml
 ```
 
-The single `@Test` method `testLifecycle()` runs a per-identity ordered phase list from `identity.<key>.tests`. Default lifecycle:
+The single `@Test` method `testLifecycle()` runs a per-identity ordered phase list from the `tests` array. Default lifecycle:
 
 ```
 create → verifyCreate → verifyRoles → verifyAccounts → modify → verifyModify → deleteAccounts → delete
@@ -353,25 +295,6 @@ If `.tests` is absent, the full default lifecycle above runs. Phases can be repe
 | `task:<taskName>` | IIQ task name (e.g. `RefreshIdentitySingle`) | Run any IIQ task by name. The current identity is passed as a filter. |
 | `modify:<N>`, `verifyModify:<N>` | Numeric index | Multi-round modify — maps to `expectedModify.<N>.*` |
 | `verifyAccounts:<N>` | Numeric index | Account re-verification per round — maps to `accounts.N` / `account.N.<type>.*` |
-
-```
-# Multi-round modify
-identity.user1.tests=...,modify:1,verifyModify:1,verifyAccounts:1,\
-  modify:2,verifyModify:2,verifyAccounts:2,...
-
-# Arbitrary task
-identity.user1.tests=...,task:SomeCustomTask,verifyCreate,...
-
-# Account aggregation
-identity.user1.tests=...,task:RefreshIdentitySingle,\
-  task:LdapAccountAggregation,task:LdapAccountGroupAggregation,\
-  verifyCreate,...
-
-# Leaver / rehire
-identity.user1.tests=create,task:RefreshIdentitySingle,verifyCreate,\
-  verifyRoles,verifyAccounts,modify,verifyModify,verifyAccounts,\
-  modify,verifyModify,verifyAccounts,deleteAccounts,delete
-```
 
 ---
 
