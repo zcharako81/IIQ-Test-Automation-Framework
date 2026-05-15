@@ -51,6 +51,7 @@ public class IdentityTest extends BaseTest {
         String userId;
         Identity identity;
         String identityKey;
+        boolean skipped;  // true when create/resolve failed — phases will be skipped
     }
 
     @Test(description = "SCIM: Per-identity lifecycle driven by identity.json .tests list")
@@ -75,10 +76,11 @@ public class IdentityTest extends BaseTest {
                 if (status != 201 || ctx.userId == null) {
                     softAssert.fail("Create failed for identity: " + key
                             + " — status=" + status + ", userId=" + ctx.userId);
-                    continue; // skip lifecycle for this identity
+                    ctx.skipped = true;
+                } else {
+                    ctx.identity = user;
+                    Reporter.log("<<< Created identity: " + key + " -> id=" + ctx.userId);
                 }
-                ctx.identity = user;
-                Reporter.log("<<< Created identity: " + key + " -> id=" + ctx.userId);
             } else {
                 String expectedUserName = IdentityDataFactory.getExpectedUserName(suffix, key);
                 Reporter.log(">>> Resolving existing identity: " + key + " (userName=" + expectedUserName + ")");
@@ -94,10 +96,11 @@ public class IdentityTest extends BaseTest {
                     softAssert.fail("Could not resolve identity: " + key
                             + " via userName: " + expectedUserName
                             + " (status=" + response.statusCode() + ")");
-                    continue; // skip lifecycle for this identity
+                    ctx.skipped = true;
+                } else {
+                    ctx.identity = IdentityDataFactory.createIdentityFromExpected(suffix, key);
+                    Reporter.log("<<< Resolved identity: " + key + " -> id=" + ctx.userId);
                 }
-                ctx.identity = IdentityDataFactory.createIdentityFromExpected(suffix, key);
-                Reporter.log("<<< Resolved identity: " + key + " -> id=" + ctx.userId);
             }
             identities.put(key, ctx);
         }
@@ -119,6 +122,11 @@ public class IdentityTest extends BaseTest {
                 String description = IdentityDataProvider.getPhaseDescription(ctx.identityKey, phase);
                 if (description != null) {
                     Reporter.log("    [desc] " + description);
+                }
+                if (ctx.skipped) {
+                    // Identity creation/resolve failed -- skip all phases but log them for the reporter
+                    Reporter.log("  Phase: " + phaseLabel + " -> 0ms");
+                    continue;
                 }
                 long phaseStart = System.currentTimeMillis();
                 switch (phaseName) {
