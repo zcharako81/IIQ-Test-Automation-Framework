@@ -61,7 +61,7 @@ src/test/iiq
 - **Define your test scenario**: Start by listing your test identities under the `identities` key. For each identity, provide create attributes, expected values, expected roles, and account validations. Everything is driven by conventions documented below.
 - **Phase list**: Define the identity lifecycle via the `tests` array. All tasks are launched via the unified `task:<taskName>` phase (e.g. `task:RefreshIdentitySingle`). The identity name is passed automatically as a workflow filter.
 - **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `testng.xml`).
-- **Set the manager UUID for your environment**: The `managerValue` in `identity.json` is a UUID specific to the IIQ instance. After setting up your IIQ server, run `GET /scim/v2/Users?filter=userName eq "The Administrator"`, copy the `id` from the response, and replace every occurrence of the old UUID in `identity.json` (and `identity.properties` if using properties mode).
+- **Set the manager UUID for your environment**: The `managerValue` in `identity.json` is a UUID specific to the IIQ instance. 
 
 ---
 
