@@ -70,10 +70,13 @@ public class IdentityTest extends BaseTest {
                 Reporter.log(">>> Creating identity: " + key);
                 Identity user = IdentityDataFactory.createIdentity(suffix, key);
                 var response = service.createUser(user);
-                ResponseValidator.assertStatus(response, 201, softAssert,
-                        "Create failed for identity: " + key);
+                int status = response.statusCode();
                 ctx.userId = response.jsonPath().getString("id");
-                softAssert.assertNotNull(ctx.userId, "User ID must not be null for: " + key);
+                if (status != 201 || ctx.userId == null) {
+                    softAssert.fail("Create failed for identity: " + key
+                            + " — status=" + status + ", userId=" + ctx.userId);
+                    continue; // skip lifecycle for this identity
+                }
                 ctx.identity = user;
                 Reporter.log("<<< Created identity: " + key + " -> id=" + ctx.userId);
             } else {
@@ -87,9 +90,12 @@ public class IdentityTest extends BaseTest {
                         ctx.userId = (String) user.get("id");
                     }
                 }
-                softAssert.assertNotNull(ctx.userId,
-                        "Could not resolve identity: " + key + " via userName: " + expectedUserName
-                                + " (status=" + response.statusCode() + ")");
+                if (ctx.userId == null) {
+                    softAssert.fail("Could not resolve identity: " + key
+                            + " via userName: " + expectedUserName
+                            + " (status=" + response.statusCode() + ")");
+                    continue; // skip lifecycle for this identity
+                }
                 ctx.identity = IdentityDataFactory.createIdentityFromExpected(suffix, key);
                 Reporter.log("<<< Resolved identity: " + key + " -> id=" + ctx.userId);
             }
@@ -172,6 +178,10 @@ public class IdentityTest extends BaseTest {
     }
 
     private void doVerifyIdentity(IdentityContext ctx, String expectedPrefix, String qualifier) {
+        if (ctx.userId == null) {
+            softAssert.fail("Cannot verify identity '" + ctx.identityKey + "' — userId is null");
+            return;
+        }
         TestUtils.waitForCondition(
                 () -> service.getUser(ctx.userId).statusCode() == 200,
                 TestUtils.waitTimeout(), TestUtils.waitPoll()
