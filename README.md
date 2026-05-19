@@ -30,6 +30,16 @@ Disclaimer: This project is an independent test automation framework and is not 
 | Tested Against | SailPoint IdentityIQ 8.5 |
 ---
 
+🧠 Design Principles
+
+* Separation of concerns (model / service / test)
+* Config-driven test data
+* SCIM-first approach
+* Reusable utilities
+* Extensible for multiple connectors
+* Per-identity configuration for multi-identity scenarios
+---
+
 ## 📁 Project Structure
 ```
 src/test/java
@@ -52,6 +62,17 @@ src/test/iiq
 │
 └── config/My-WF-TaskLauncher   # Workflow XML (must be imported into IIQ)
 ```
+---
+## 📦 Dependencies
+
+| Dependency | Version | Purpose |
+|---|---|---|
+| `org.testng:testng` | 7.11.0 | Test framework |
+| `io.rest-assured:rest-assured` | 6.0.0 | REST API testing |
+| `org.hamcrest:hamcrest` | 3.0 | Matchers (bundled with RestAssured) |
+| `org.apache.commons:commons-configuration2` | 2.9.0 | Configuration loading |
+| `com.fasterxml.jackson.core:jackson-databind` | 2.17.0 | JSON parsing for identity.json |
+
 ---
 
 ## 👉 Instructions
@@ -346,18 +367,6 @@ This makes it easy to verify at a glance which attributes were tested, which rol
 
 ---
 
-## 📦 Dependencies
-
-| Dependency | Version | Purpose |
-|---|---|---|
-| `org.testng:testng` | 7.11.0 | Test framework |
-| `io.rest-assured:rest-assured` | 6.0.0 | REST API testing |
-| `org.hamcrest:hamcrest` | 3.0 | Matchers (bundled with RestAssured) |
-| `org.apache.commons:commons-configuration2` | 2.9.0 | Configuration loading |
-| `com.fasterxml.jackson.core:jackson-databind` | 2.17.0 | JSON parsing for identity.json |
-
----
-
 ## 🔧 Troubleshooting
 
 ### Test fails with "Connection refused" or timeout
@@ -395,13 +404,4 @@ This makes it easy to verify at a glance which attributes were tested, which rol
 
 ---
 
-🧠 Design Principles
-
-* Separation of concerns (model / service / test)
-* Config-driven test data
-* SCIM-first approach
-* Reusable utilities
-* Extensible for multiple connectors
-* Per-identity configuration for multi-identity scenarios
----
 👤 Author: Zisis Charakopidis (zisis.charakopidis@icloud.com)
