@@ -43,6 +43,10 @@ public final class ScimSchemas {
     public static final String QUERY_ACCOUNTS =
             "attributes=" + SCHEMA_SAILPOINT_USER + ":accounts";
 
+    /** Query param to fetch entitlements: ?attributes=...User:entitlements */
+    public static final String QUERY_ENTITLEMENTS =
+            "attributes=" + SCHEMA_SAILPOINT_USER + ":entitlements";
+
     // ── REST-Assured JSONPath prefixes (used in assertions) ──────────────
 
     /** JSONPath prefix for the Enterprise User extension (includes trailing dot). */

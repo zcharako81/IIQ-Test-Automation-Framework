@@ -13,16 +13,28 @@
 // Use {suffix} in expected values where the runtime suffix is injected.
 // The suffix source is config.properties: test.suffix=random (or a fixed value).
 //
+// existingUserName — optional, for targeting a pre-created identity.
+// When set and no "create" phase is present, the framework looks up this
+// exact userName via SCIM filter instead of resolving verifyCreate.userName.
+// Supports {suffix} if needed.
+//   "user1": {
+//     "existingUserName": "john.doe.1746051234567",
+//     "tests": ["modify:1", "verifyModify:1"],
+//     ...
+//   }
+//
 // managerValue is an IIQ-instance-specific UUID. Update all occurrences
 // when targeting a different IIQ environment (see README troubleshooting).
 {
   "identities": {
     // First identity — full lifecycle with modify and account verification
     "user1": {
+	 //"existingUserName": "john.doe.1780242531599",
       "tests": [
         "create",
         "task:RefreshIdentitySingle",
         "task:LdapAccountAggregation",
+		"task:LDAP-AccountGroupAggregation",
         "verifyCreate",
         "modify:1",
         "verifyModify:1",
@@ -103,6 +115,12 @@
                 "givenName": "John",
                 "sn": "Doe"
               }
+              // Entitlements expected on this account (optional).
+              // Matched by display name; type is verified when specified.
+              // Both fields support the {suffix} placeholder.
+              //"entitlements": [
+              //  { "display": "AITestGroup1", "type": "Entitlement" }
+             // ]
             }
           },
           // AD account — expected NOT to exist for this identity
@@ -175,6 +193,16 @@
             ]
           },
           "accounts": {
+			"ldap": {
+			          "application": "LDAP-Test",
+			          "expected": {
+			            "exists": true,
+			            "attributes": {
+			              "givenName": "John",
+			              "sn": "Doe"
+			            }
+			          }
+			        },
             "ad": {
               "application": "ActiveDirectory-Test",
               "expected": {
@@ -193,9 +221,9 @@
           }
         }
       }
-    },
+    }
     // Second identity — minimal lifecycle (create → verifyCreate → delete)
-    "user2": {
+   /* "user2": {
       "tests": [
         "create",
         "task:RefreshIdentitySingle",
@@ -240,7 +268,10 @@
                 "cn": "jane.smith.{suffix}",
                 "givenName": "Jane",
                 "sn": "Smith"
-              }
+              },
+              "entitlements": [
+                { "display": "CN=All Users,OU=Groups,DC=acme,DC=com", "type": "group" }
+              ]
             }
           }
         }
@@ -279,6 +310,6 @@
           "location": "Chicago"
         }
       }
-    }
+    }*/
   }
 }

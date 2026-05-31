@@ -57,6 +57,8 @@ public class IdentityPhaseReporter implements IReporter {
             Pattern.compile("  \\[verifyAccounts\\] App: (.+) \\((\\d+) attrs\\)");
     private static final Pattern DETAIL_VERIFY_ACCOUNTS_MISSING =
             Pattern.compile("  \\[verifyAccounts\\] App: (.+) \\(should not exist\\)");
+    private static final Pattern DETAIL_VERIFY_ACCOUNTS_ENTITLEMENTS =
+            Pattern.compile("  \\[verifyAccounts\\] App: (.+) \\((\\d+) entitlements\\)");
 
     // Sub-detail lines (4-space indent)
     private static final Pattern SUB_ATTR =
@@ -65,6 +67,8 @@ public class IdentityPhaseReporter implements IReporter {
             Pattern.compile("    \\[role\\] (.+) (.+)");
     private static final Pattern SUB_ACCT =
             Pattern.compile("    \\[acct:(.+)\\] (.+) → (.+)");
+    private static final Pattern SUB_ENTITLEMENT =
+            Pattern.compile("    \\[entitlement:(.+)\\] (.+?)(?: \\(type=(.+)\\))? \u2713");
 
     private static final Pattern SUMMARY_PATTERN =
             Pattern.compile("=== All phases completed in (\\d+)ms ===");
@@ -307,6 +311,16 @@ public class IdentityPhaseReporter implements IReporter {
                 continue;
             }
 
+            Matcher vaEntMatcher = DETAIL_VERIFY_ACCOUNTS_ENTITLEMENTS.matcher(line);
+            if (vaEntMatcher.matches()) {
+                currentDetail = new DetailItem();
+                currentDetail.category = "verifyAccounts";
+                currentDetail.summary = "App: " + vaEntMatcher.group(1)
+                        + " (" + vaEntMatcher.group(2) + " entitlements)";
+                lastPhase.details.add(currentDetail);
+                continue;
+            }
+
             // ── Sub-detail lines (attach to currentDetail) ───────────────
             if (currentDetail != null) {
                 SubDetail sd = null;
@@ -338,6 +352,18 @@ public class IdentityPhaseReporter implements IReporter {
                         sd.type = "acct:" + acctMatcher.group(1);
                         sd.label = acctMatcher.group(2);
                         sd.value = acctMatcher.group(3);
+                        sd.passed = true;
+                    }
+                }
+
+                if (sd == null) {
+                    Matcher entMatcher = SUB_ENTITLEMENT.matcher(line);
+                    if (entMatcher.matches()) {
+                        sd = new SubDetail();
+                        sd.type = "entitlement:" + entMatcher.group(1);
+                        sd.label = entMatcher.group(2);
+                        String typeValue = entMatcher.group(3);
+                        sd.value = (typeValue != null) ? typeValue : "\u2713";
                         sd.passed = true;
                     }
                 }
@@ -1064,6 +1090,7 @@ public class IdentityPhaseReporter implements IReporter {
             List<SubDetail> roles = new ArrayList<>();
             List<Map<String, List<SubDetail>>> acctGroups = new ArrayList<>();
             Map<String, List<SubDetail>> acctMap = new LinkedHashMap<>();
+            Map<String, List<SubDetail>> entMap = new LinkedHashMap<>();
 
             for (SubDetail sd : item.subDetails) {
                 if ("attr".equals(sd.type)) {
@@ -1073,6 +1100,9 @@ public class IdentityPhaseReporter implements IReporter {
                 } else if (sd.type.startsWith("acct:")) {
                     String acctType = sd.type.substring(5); // strip "acct:" prefix
                     acctMap.computeIfAbsent(acctType, k -> new ArrayList<>()).add(sd);
+                } else if (sd.type.startsWith("entitlement:")) {
+                    String entType = sd.type.substring(12); // strip "entitlement:" prefix
+                    entMap.computeIfAbsent(entType, k -> new ArrayList<>()).add(sd);
                 }
             }
 
@@ -1120,6 +1150,25 @@ public class IdentityPhaseReporter implements IReporter {
                         sb.append("</tr>\n");
                     }
                     sb.append("                </table>\n");
+                }
+            }
+
+            // Render entitlements (verifyAccounts)
+            if (!entMap.isEmpty()) {
+                for (Map.Entry<String, List<SubDetail>> entEntry : entMap.entrySet()) {
+                    String entAcctType = entEntry.getKey();
+                    List<SubDetail> entItems = entEntry.getValue();
+                    sb.append("                <div class=\"section-label\">Entitlements: ")
+                            .append(escapeHtml(entAcctType)).append("</div>\n");
+                    sb.append("                <ul class=\"role-list\">\n");
+                    for (SubDetail sd : entItems) {
+                        String typeTag = sd.value.equals("\u2713") ? "" : " (" + sd.value + ")";
+                        sb.append("                  <li>")
+                                .append("<span class=\"role-ok\">\u2705</span>")
+                                .append(escapeHtml(sd.label)).append(escapeHtml(typeTag))
+                                .append("</li>\n");
+                    }
+                    sb.append("                </ul>\n");
                 }
             }
         }

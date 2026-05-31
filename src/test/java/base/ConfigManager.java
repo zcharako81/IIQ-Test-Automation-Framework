@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import factory.IdentityDataProvider;
+import factory.IdentityDataSet.EntitlementExpected;
 
 public class ConfigManager {
 
@@ -114,6 +115,16 @@ public class ConfigManager {
     }
 
     /**
+     * Returns the explicit existing userName for a pre-created identity, or null.
+     * When set, the framework uses this value directly for the SCIM filter lookup,
+     * bypassing suffix-based {@code verifyCreate.userName} resolution.
+     * Delegates to {@link IdentityDataProvider}.
+     */
+    public static String getExistingUserName(String identityKey) {
+        return IdentityDataProvider.getExistingUserName(identityKey);
+    }
+
+    /**
      * Returns the list of expected birthright roles for an identity.
      * Delegates to {@link IdentityDataProvider}.
      */
@@ -175,6 +186,23 @@ public class ConfigManager {
      */
     public static String getAccountExists(String identityKey, String type, String qualifier) {
         return IdentityDataProvider.getAccountExists(identityKey, type, qualifier);
+    }
+
+    /**
+     * Returns expected entitlements for an account type (no qualifier — backward compatible).
+     * Delegates to {@link IdentityDataProvider}.
+     */
+    public static List<EntitlementExpected> getAccountExpectedEntitlements(String identityKey, String type) {
+        return getAccountExpectedEntitlements(identityKey, type, "");
+    }
+
+    /**
+     * Returns expected entitlements for an account type, optionally qualified.
+     * Delegates to {@link IdentityDataProvider}.
+     */
+    public static List<EntitlementExpected> getAccountExpectedEntitlements(
+            String identityKey, String type, String qualifier) {
+        return IdentityDataProvider.getAccountExpectedEntitlements(identityKey, type, qualifier);
     }
     public static Map<String, String> getByPrefix(String prefix) {
         Map<String, String> result = new HashMap<>();

@@ -1,8 +1,5 @@
 package services;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-
 import base.ApiClient;
 import base.ConfigManager;
 import base.ScimSchemas;
@@ -54,6 +51,16 @@ public class IdentityService {
     }
 
     /**
+     * GET /Users/{id}?attributes=...entitlements with retry on transient failures.
+     */
+    public Response getUserEntitlements(String id) {
+        return retry.executeWithRetry(
+                () -> ApiClient.get(ENDPOINT + "/" + id + "?" + ScimSchemas.QUERY_ENTITLEMENTS),
+                "GET /Users/" + id + " (entitlements)"
+        );
+    }
+
+    /**
      * GET account by $ref URL with retry on transient failures.
      */
     public Response getAccountByRef(String refUrl) {
@@ -73,9 +80,8 @@ public class IdentityService {
      * No retry — this operation may legitimately return 200 (found) or 200 with empty list (not found).
      */
     public Response findUserByUserName(String userName) {
-        String filter = "userName eq \"" + userName + "\"";
-        String encodedFilter = URLEncoder.encode(filter, StandardCharsets.UTF_8);
-        return ApiClient.get(ENDPOINT + "?filter=" + encodedFilter);
+        String filterValue = "userName eq \"" + userName + "\"";
+        return ApiClient.get(ENDPOINT, "filter", filterValue);
     }
 
     public Response patchUser(String id, Object patchBody) {

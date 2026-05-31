@@ -9,7 +9,8 @@ This framework supports end-to-end IAM testing including:
 * ✅ Identity CRUD — create, read, update, delete
 * ✅ Task execution — any IIQ task via task:<taskName>
 * ✅ Birthright roles — verify role assignments
-* ✅ Account provisioning — verify accounts per application
+* ✅ Account provisioning — verify accounts per application with attributes and entitlements
+* ✅ Account entitlements — verify entitlement membership per application
 * ✅ Multi-identity — simultaneous lifecycle for many identities
 * ✅ Multi-round modify — multiple modification rounds
 * ✅ Dynamic attributes — any sailpoint.* property (incl. custom attributes)
@@ -78,8 +79,8 @@ src/test/iiq
 ## 👉 Instructions
 
 - **Prerequisite**: Workflow `My-WF-TaskLauncher` must be imported into IIQ before test execution.
-- **All tests are defined in `identity.jsonc`**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, and account attributes — is configured in a single JSON data file. No Java code changes are needed to define or modify test cases.
-- **Define your test scenario**: Start by listing your test identities under the `identities` key. For each identity, provide create attributes, expected values, expected roles, and account validations. Everything is driven by conventions documented below.
+- **All tests are defined in `identity.jsonc`**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, account attributes, and account entitlements — is configured in a single JSON data file. No Java code changes are needed to define or modify test cases.
+- **Define your test scenario**: Start by listing your test identities under the `identities` key. For each identity, provide create attributes, expected values, expected roles, account validations, and entitlement expectations. Everything is driven by conventions documented below.
 - **Phase list**: Define the identity lifecycle via the `tests` array. All tasks are launched via the unified `task:<taskName>` phase (e.g. `task:RefreshIdentitySingle`). The identity name is passed automatically as a workflow filter.
 - **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `testng.xml`).
 - **Set the manager UUID for your environment**: The `managerValue` in `identity.jsonc` is a UUID specific to the IIQ instance. 
@@ -159,9 +160,9 @@ Define the identity lifecycle by listing phases in the `tests` array. Each phase
 |---|---|
 | `create` | Creates the identity via `POST /scim/v2/Users` using the attributes from the `create` section |
 | `task:<taskName>` | Launches the `My-WF-TaskLauncher` workflow for the specified IIQ task (e.g. `task:RefreshIdentitySingle`). The identity name is passed automatically as a task filter. Waits for completion and asserts `Success`. |
-| `verifyCreate` | Fetches the identity via `GET /scim/v2/Users/{id}` and asserts all core, enterprise, and SailPoint extension attributes match `verifyCreate`; also verifies `roles` and `accounts` from the same section (with polling for roles) |
+| `verifyCreate` | Fetches the identity via `GET /scim/v2/Users/{id}` and asserts all core, enterprise, and SailPoint extension attributes match `verifyCreate`; also verifies `roles`, `accounts`, and account `entitlements` from the same section (with polling for roles) |
 | `modify` | Modifies the identity via **SCIM PATCH** using the attributes from the `modify` section (`modify:1`, `modify:2`, etc. for multi-round) |
-| `verifyModify` | Fetches the identity and asserts attributes match the corresponding `verifyModify` section (`verifyModify:1` → `verifyModify.1`); also verifies accounts from the same section |
+| `verifyModify` | Fetches the identity and asserts attributes match the corresponding `verifyModify` section (`verifyModify:1` → `verifyModify.1`); also verifies accounts and account entitlements from the same section |
 | `deleteAccounts` | Fetches all account references and deletes each via its `$ref` URL |
 | `delete` | Deletes the identity via `DELETE /scim/v2/Users/{id}` |
 
@@ -218,7 +219,19 @@ When `identity.data.source=json` is set in `config.properties`, test data is loa
                 "cn": "john.doe.{suffix}",
                 "givenName": "John",
                 "sn": "Doe"
-              }
+              },
+              "entitlements": [
+                {
+                  "application": "LDAP-Test",
+                  "display": "cn=AITestGroup1,ou=groups,dc=test,dc=local",
+                  "type": "group"
+                },
+                {
+                  "application": "LDAP-Test",
+                  "display": "cn=VPN Access,ou=Groups,dc=acme,dc=com",
+                  "type": "group"
+                }
+              ]
             }
           }
         }
@@ -275,6 +288,20 @@ Any `sailpoint.*` block is optional; omit it and the framework skips the SailPoi
 
 > **Note on unqualified modify**: In JSON, unqualified modify uses key `""` (empty string), while qualified rounds use `"1"`, `"2"`, etc. The `modify` section contains only the changed attributes (PATCH semantics), while `verifyModify` must contain the full expected state after modification (PUT semantics).
 
+#### Targeting pre-existing identities with `existingUserName`
+
+To run lifecycle phases (e.g. `modify`, `verifyModify`, `task:*`) on identities that already exist in IIQ without a `create` phase, set `existingUserName` on the identity entry:
+
+```json
+"user1": {
+  "existingUserName": "john.doe.{suffix}",
+  "tests": ["modify:1", "task:RefreshIdentitySingle", "verifyModify:1"],
+  ...
+}
+```
+
+When `existingUserName` is set, the framework resolves the identity by username at the start of the test (via SCIM `?filter=userName eq "..."`) and stores the resulting IIQ ID for all subsequent phases. This also applies `{suffix}` substitution if the config suffix is in use. The `create` phase is skipped automatically when `existingUserName` is present.
+
 ---
 
 ## 📐 API Contract Constants — `base/ScimSchemas.java`
@@ -292,6 +319,7 @@ SCIM schema URNs and REST endpoint paths are API-contract constants defined in a
 | `WORKFLOWS_ENDPOINT` | `/LaunchedWorkflows` |
 | `QUERY_ROLES` | `attributes=...User:roles` |
 | `QUERY_ACCOUNTS` | `attributes=...User:accounts` |
+| `QUERY_ENTITLEMENTS` | `attributes=...User:entitlements` |
 
 ---
 
@@ -351,7 +379,10 @@ Each identity is rendered as a card with a badge, phase count, and total duratio
 │ ✅ verifyCreate    ██████              312ms        ✅          │
 │   ▶ 📋 Attributes checked: 8                                   │
 │   ▶ 🏆 Roles: [ALL_ACTIVE_USERS] matched 1/1                   │
-│   ▶ 🔗 App: LDAP-Test (4 attrs)                                │
+│   ▶ 🔗 App: LDAP-Test (4 attrs, 2 entitlements)               │
+│     ├── Entitlements: ldap                                     │
+│     │   ├── ✅ cn=AITestGroup1 (group)                         │
+│     │   └── ✅ cn=VPN Access (group)                           │
 │ ✏️ modify          ███                 134ms        ✅          │
 │ ✅ verifyModify    ██████              298ms        ✅          │
 │   ▶ 📋 Attributes checked: 9                                   │
@@ -384,6 +415,11 @@ This makes it easy to verify at a glance which attributes were tested, which rol
 - After identity creation, run `task:RefreshIdentitySingle` (or equivalent) to trigger role/account aggregation.
 - Roles and accounts are verified via SCIM query params — check that the expected roles match the role `display` values in IIQ.
 - For accounts, verify the `application` name in `identity.jsonc` matches the application `displayName` in IIQ.
+
+### Entitlement verification fails
+- Entitlements are fetched via SCIM query param `?attributes=...User:entitlements` (same pattern as roles). Ensure the identity has been aggregated (run `task:RefreshIdentitySingle`).
+- The `application` field in the entitlement response may be a plain string (app name) rather than a structured map — the framework handles both formats.
+- Verify the entitlement's `display` value and `type` (e.g. `group`) in `identity.jsonc` match what IIQ returns for the identity.
 
 ### managerValue assertions fail after switching IIQ environments
 - The `managerValue` in `identity.jsonc` (and `identity.properties`) is a hardcoded UUID specific to the IIQ instance the tests were written against. When switching to a different IIQ server, update **every occurrence** of the UUID with the target instance's manager identity UUID.

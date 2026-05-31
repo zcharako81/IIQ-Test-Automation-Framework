@@ -48,6 +48,15 @@ public class IdentityDataSet {
     // ─────────────────────────────────────────────────────────────────────
 
     public static class IdentityEntry {
+        /**
+         * Optional exact userName of a pre-existing identity in IIQ.
+         * When set and no {@code create} phase is present, the framework
+         * uses this value directly for the SCIM filter lookup, bypassing
+         * suffix-based {@code verifyCreate.userName} resolution.
+         * Supports {@code {suffix}} if needed.
+         */
+        private String existingUserName;
+
         private List<String> tests;
         @JsonProperty("create")
         private IdentitySection input;
@@ -77,6 +86,9 @@ public class IdentityDataSet {
         private Map<String, String> descriptions;
 
         // ── Getters / Setters ────────────────────────────────────────
+
+        public String getExistingUserName() { return existingUserName; }
+        public void setExistingUserName(String existingUserName) { this.existingUserName = existingUserName; }
 
         public List<String> getTests() { return tests; }
         public void setTests(List<String> tests) { this.tests = tests; }
@@ -184,11 +196,32 @@ public class IdentityDataSet {
     public static class AccountExpected {
         private boolean exists;
         private Map<String, String> attributes;
+        private List<EntitlementExpected> entitlements;
 
         public boolean isExists() { return exists; }
         public void setExists(boolean exists) { this.exists = exists; }
 
         public Map<String, String> getAttributes() { return attributes; }
         public void setAttributes(Map<String, String> attributes) { this.attributes = attributes; }
+
+        public List<EntitlementExpected> getEntitlements() { return entitlements; }
+        public void setEntitlements(List<EntitlementExpected> entitlements) { this.entitlements = entitlements; }
+    }
+
+    /**
+     * Expected entitlement on an account.
+     * <p>Each entitlement is identified by its {@code display} name and
+     * optionally its {@code type} (e.g. "group", "role", "entitlement").
+     * Both fields support the {suffix} placeholder.
+     */
+    public static class EntitlementExpected {
+        private String display;
+        private String type;
+
+        public String getDisplay() { return display; }
+        public void setDisplay(String display) { this.display = display; }
+
+        public String getType() { return type; }
+        public void setType(String type) { this.type = type; }
     }
 }

@@ -261,6 +261,36 @@ public class IdentityDataProvider {
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // Existing user name (pre-created identity lookup)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Returns the explicit existing userName for a pre-created identity, or null.
+     * <p>
+     * When set, the framework uses this value directly for the SCIM filter
+     * lookup, bypassing suffix-based {@code verifyCreate.userName} resolution.
+     * Supports {@code {suffix}} if needed.
+     * <p>
+     * From JSON: the {@code existingUserName} field in the identity entry.
+     * From properties: the {@code identity.<key>.existingUserName} property.
+     *
+     * @param identityKey the identity key
+     * @return the exact userName to look up, or null if not configured
+     */
+    public static String getExistingUserName(String identityKey) {
+        if (useJson) {
+            IdentityEntry entry = getEntry(identityKey);
+            if (entry != null && entry.getExistingUserName() != null
+                    && !entry.getExistingUserName().isEmpty()) {
+                return entry.getExistingUserName();
+            }
+            return null;
+        }
+        String val = fallbackProps.getProperty("identity." + identityKey + ".existingUserName");
+        return (val != null && !val.trim().isEmpty()) ? val.trim() : null;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // Expected roles
     // ─────────────────────────────────────────────────────────────────────
 
@@ -389,6 +419,35 @@ public class IdentityDataProvider {
                 ? "identity." + identityKey + ".account." + type + ".expected.attributes."
                 : "identity." + identityKey + ".account." + qualifier + "." + type + ".expected.attributes.";
         return getByPrefixFromProps(prefix);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Account expected entitlements
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Returns expected entitlements for an account type.
+     * <p>
+     * In JSON mode, reads from {@link AccountExpected#getEntitlements()}.
+     * In properties mode, not supported (returns empty list).
+     *
+     * @param identityKey the identity key
+     * @param type        the account type key (e.g. "ldap", "ad")
+     * @param qualifier   empty for verifyCreate, or round number for verifyModify
+     * @return list of expected entitlements, or empty list if none configured
+     */
+    public static List<IdentityDataSet.EntitlementExpected> getAccountExpectedEntitlements(
+            String identityKey, String type, String qualifier) {
+        if (useJson) {
+            AccountEntry entry = getAccountEntry(identityKey, type, qualifier);
+            if (entry == null || entry.getExpected() == null
+                    || entry.getExpected().getEntitlements() == null) {
+                return List.of();
+            }
+            return entry.getExpected().getEntitlements();
+        }
+        // Properties source: entitlements not supported
+        return List.of();
     }
 
     // ── Account helper (JSON mode) ──────────────────────────────────────

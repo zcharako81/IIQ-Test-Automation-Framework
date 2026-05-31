@@ -68,6 +68,21 @@ public class ApiClient {
                 .andReturn());
     }
 
+    /**
+     * GET with a single query parameter.
+     * <p>Uses RestAssured's {@code queryParam()} which applies proper
+     * percent-encoding (spaces → {@code %20}, quotes → {@code %22}).
+     * Prefer this over manually building URL strings with {@code URLEncoder}
+     * (which uses form-encoding where {@code +} means space — wrong for
+     * SCIM filter query parameters).
+     */
+    public static Response get(String endpoint, String paramName, String paramValue) {
+        return logResponse(baseRequest()
+                .queryParam(paramName, paramValue)
+                .get(endpoint)
+                .andReturn());
+    }
+
     public static Response patch(String endpoint, Object body) {
 
         return logResponse(baseRequest()

@@ -21,6 +21,7 @@ import io.restassured.response.Response;
 import model.Identity;
 import factory.IdentityDataFactory;
 import factory.IdentityDataProvider;
+import factory.IdentityDataSet.EntitlementExpected;
 import factory.IdentityDataSet.IdentitySection;
 import factory.LaunchedWorkflowDataFactory;
 import utils.ResponseValidator;
@@ -82,7 +83,13 @@ public class IdentityTest extends BaseTest {
                     Reporter.log("<<< Created identity: " + key + " -> id=" + ctx.userId);
                 }
             } else {
-                String expectedUserName = IdentityDataFactory.getExpectedUserName(suffix, key);
+                // Check for explicit existingUserName first; fall back to suffix-based resolution
+                String expectedUserName = IdentityDataProvider.getExistingUserName(ctx.identityKey);
+                if (expectedUserName == null) {
+                    expectedUserName = IdentityDataFactory.getExpectedUserName(suffix, key);
+                } else {
+                    expectedUserName = TestUtils.resolveSuffix(expectedUserName, suffix);
+                }
                 Reporter.log(">>> Resolving existing identity: " + key + " (userName=" + expectedUserName + ")");
                 var response = service.findUserByUserName(expectedUserName);
                 if (response.statusCode() == 200) {
@@ -302,6 +309,67 @@ public class IdentityTest extends BaseTest {
                             "Mismatch in " + type + " for attribute: " + entry.getKey()
                                     + " on identity: " + ctx.identityKey);
                     Reporter.log("    [acct:" + type + "] " + entry.getKey() + " → " + actual);
+                }
+
+                // ── Entitlement verification (SCIM attribute query, same pattern as roles) ──
+                @SuppressWarnings("unchecked")
+                List<EntitlementExpected> expectedEntitlements =
+                        ConfigManager.getAccountExpectedEntitlements(ctx.identityKey, type, qualifier);
+                if (expectedEntitlements != null && !expectedEntitlements.isEmpty()) {
+                    Response entResponse = service.getUserEntitlements(ctx.userId);
+                    ResponseValidator.assertSuccess(entResponse, softAssert,
+                            "Entitlements fetch failed for: " + ctx.identityKey);
+                    List<Map<String, Object>> allEnts = entResponse.jsonPath().getList(
+                            ScimSchemas.JSONPATH_SAILPOINT + "entitlements");
+                    // Filter entitlements by application matching the current account
+                    List<Map<String, Object>> actualEnts = new ArrayList<>();
+                    if (allEnts != null) {
+                        for (Map<String, Object> ent : allEnts) {
+                            Object appObj = ent.get("application");
+                            String appName = null;
+                            if (appObj instanceof Map) {
+                                appName = (String) ((Map<?, ?>) appObj).get("displayName");
+                            } else if (appObj instanceof String) {
+                                appName = (String) appObj;
+                            }
+                            if (expectedApp.equals(appName)) {
+                                actualEnts.add(ent);
+                            }
+                        }
+                    }
+                    Reporter.log("  [verifyAccounts] App: " + expectedApp
+                            + " (" + expectedEntitlements.size() + " entitlements)");
+                    for (EntitlementExpected exp : expectedEntitlements) {
+                        String expectedDisplay = TestUtils.resolveSuffix(exp.getDisplay(), suffix);
+                        String expectedType = exp.getType();
+                        boolean found = false;
+                        for (Map<String, Object> ent : actualEnts) {
+                            String actualDisplay = String.valueOf(ent.get("display"));
+                            if (expectedDisplay.equalsIgnoreCase(actualDisplay)) {
+                                found = true;
+                                if (expectedType != null && !expectedType.isEmpty()) {
+                                    String actualType =
+                                            String.valueOf(ent.getOrDefault("type", ""));
+                                    softAssert.assertEquals(actualType, expectedType,
+                                            "Mismatch in " + type + " for entitlement type "
+                                                    + "where display=" + expectedDisplay
+                                                    + " on identity: " + ctx.identityKey);
+                                    Reporter.log("    [entitlement:" + type + "] "
+                                            + expectedDisplay + " (type=" + actualType + ") ✓");
+                                } else {
+                                    Reporter.log("    [entitlement:" + type + "] "
+                                            + expectedDisplay + " ✓");
+                                }
+                                break;
+                            }
+                        }
+                        softAssert.assertTrue(found,
+                                "Expected entitlement not found for " + type
+                                        + " on identity: " + ctx.identityKey
+                                        + " — display=\"" + expectedDisplay + "\""
+                                        + (expectedType != null && !expectedType.isEmpty()
+                                                ? ", type=\"" + expectedType + "\"" : ""));
+                    }
                 }
             } else {
                 softAssert.assertNull(account,
