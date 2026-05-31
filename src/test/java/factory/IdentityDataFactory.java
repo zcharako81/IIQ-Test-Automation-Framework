@@ -24,20 +24,20 @@ public class IdentityDataFactory {
     }
 
     /**
-     * Creates an Identity POJO from .expectedModify.* properties for SCIM PUT (modify).
-     * This is the backward-compatible variant — no qualifier, uses bare expectedModify section.
+     * Creates an Identity POJO from .verifyModify.* properties for SCIM PUT (modify).
+     * This is the backward-compatible variant — no qualifier, uses bare verifyModify section.
      */
     public static Identity createIdentityForModify(String suffix, String identityKey) {
         return IdentityDataProvider.createIdentityForModify(suffix, identityKey, "");
     }
 
     /**
-     * Creates an Identity POJO from .expectedModify[.{@literal <qualifier>}].*
+     * Creates an Identity POJO from .verifyModify[.{@literal <qualifier>}].*
      * properties for SCIM PUT (modify).
      *
      * @param suffix      the unique suffix for {suffix} resolution
      * @param identityKey the identity key (e.g. "user1")
-     * @param qualifier   empty for bare expectedModify, or "1", "2" etc. for qualified rounds
+     * @param qualifier   empty for bare verifyModify, or "1", "2" etc. for qualified rounds
      */
     public static Identity createIdentityForModify(String suffix, String identityKey, String qualifier) {
         return IdentityDataProvider.createIdentityForModify(suffix, identityKey, qualifier);
@@ -51,9 +51,9 @@ public class IdentityDataFactory {
     }
 
     /**
-     * Creates an Identity POJO from .expected.* properties (post-creation expected state).
+     * Creates an Identity POJO from .verifyCreate.* properties (post-creation expected state).
      */
-    public static Identity createIdentityFromExpected(String suffix, String identityKey) {
-        return IdentityDataProvider.createIdentityFromExpected(suffix, identityKey);
+    public static Identity createIdentityFromVerifyCreate(String suffix, String identityKey) {
+        return IdentityDataProvider.createIdentityFromVerifyCreate(suffix, identityKey);
     }
 }

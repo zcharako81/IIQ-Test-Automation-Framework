@@ -193,14 +193,14 @@ public class IdentityDataProvider {
     public static List<String> getIdentityExpectedRoles(String identityKey) {
         if (useJson) {
             IdentityEntry entry = getEntry(identityKey);
-            if (entry == null || entry.getExpected() == null) {
+            if (entry == null || entry.getVerifyCreate() == null) {
                 return List.of();
             }
-            return entry.getExpected().getRoles() != null
-                    ? entry.getExpected().getRoles()
+            return entry.getVerifyCreate().getRoles() != null
+                    ? entry.getVerifyCreate().getRoles()
                     : List.of();
         }
-        String value = fallbackProps.getProperty("identity." + identityKey + ".expectedCreate.roles");
+        String value = fallbackProps.getProperty("identity." + identityKey + ".verifyCreate.roles");
         if (value == null || value.trim().isEmpty()) {
             return List.of();
         }
@@ -218,7 +218,7 @@ public class IdentityDataProvider {
      * Returns the account type list for an identity, optionally qualified.
      * <p>
      * In JSON mode, reads the accounts map from the resolved section
-     * ({@code expectedCreate} for empty qualifier, {@code expectedModify} otherwise).
+     * ({@code verifyCreate} for empty qualifier, {@code verifyModify} otherwise).
      * In properties mode, reads the comma-separated list from {@code identity.properties}.
      *
      * @param identityKey the identity key
@@ -320,8 +320,8 @@ public class IdentityDataProvider {
      * <p>
      * Qualifier mapping:
      * <ul>
-     *   <li>{@code ""} (empty) → reads from {@code expectedCreate.accounts.<type>}</li>
-     *   <li>{@code "1"}, {@code "2"} etc. → reads from {@code expectedModify.<qual>.accounts.<type>}</li>
+     *   <li>{@code ""} (empty) → reads from {@code verifyCreate.accounts.<type>}</li>
+     *   <li>{@code "1"}, {@code "2"} etc. → reads from {@code verifyModify.<qual>.accounts.<type>}</li>
      * </ul>
      */
     private static AccountEntry getAccountEntry(String identityKey, String type, String qualifier) {
@@ -332,9 +332,9 @@ public class IdentityDataProvider {
         return sec.getAccounts().get(type);
     }
 
-    /** Maps qualifier to JSON section name: empty → expectedCreate, non-empty → expectedModify. */
+    /** Maps qualifier to JSON section name: empty → verifyCreate, non-empty → verifyModify. */
     private static String qualifierToSection(String qualifier) {
-        return (qualifier == null || qualifier.isEmpty()) ? "expectedCreate" : "expectedModify";
+        return (qualifier == null || qualifier.isEmpty()) ? "verifyCreate" : "verifyModify";
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -350,7 +350,7 @@ public class IdentityDataProvider {
     }
 
     /**
-     * Creates an Identity POJO from the {@code expectedModify} section for SCIM PUT (modify).
+     * Creates an Identity POJO from the {@code verifyModify} section for SCIM PUT (modify).
      * This is the backward-compatible variant (unqualified, no qualifier).
      */
     public static Identity createIdentityForModify(String suffix, String identityKey) {
@@ -358,36 +358,36 @@ public class IdentityDataProvider {
     }
 
     /**
-     * Creates an Identity POJO from the {@code expectedModify} section for SCIM PUT (modify).
+     * Creates an Identity POJO from the {@code verifyModify} section for SCIM PUT (modify).
      * @param suffix      the suffix for {suffix} resolution
      * @param identityKey the identity key
      * @param qualifier   empty for unqualified, "1", "2" etc. for qualified rounds
      */
     public static Identity createIdentityForModify(String suffix, String identityKey, String qualifier) {
-        return buildIdentity(suffix, identityKey, "expectedModify", false, qualifier);
+        return buildIdentity(suffix, identityKey, "verifyModify", false, qualifier);
     }
 
     /**
-     * Creates an Identity POJO from the {@code expectedCreate} section (post-creation expected state).
+     * Creates an Identity POJO from the {@code verifyCreate} section (post-creation expected state).
      * Used when the create phase is absent and an existing identity is looked up.
      */
-    public static Identity createIdentityFromExpected(String suffix, String identityKey) {
-        return buildIdentity(suffix, identityKey, "expectedCreate", false);
+    public static Identity createIdentityFromVerifyCreate(String suffix, String identityKey) {
+        return buildIdentity(suffix, identityKey, "verifyCreate", false);
     }
 
     /**
-     * Returns the expected userName for an identity from the {@code expectedCreate} section.
+     * Returns the expected userName for an identity from the {@code verifyCreate} section.
      * Replaces {@code {suffix}} with the given suffix value.
      */
     public static String getExpectedUserName(String suffix, String identityKey) {
         if (useJson) {
             IdentityEntry entry = requireEntry(identityKey);
-            if (entry.getExpected() == null || entry.getExpected().getUserName() == null) {
-                throw new RuntimeException("Missing expectedCreate.userName for identity: " + identityKey);
+            if (entry.getVerifyCreate() == null || entry.getVerifyCreate().getUserName() == null) {
+                throw new RuntimeException("Missing verifyCreate.userName for identity: " + identityKey);
             }
-            return TestUtils.resolveSuffix(entry.getExpected().getUserName(), suffix);
+            return TestUtils.resolveSuffix(entry.getVerifyCreate().getUserName(), suffix);
         }
-        String raw = fallbackProps.getProperty("identity." + identityKey + ".expectedCreate.userName");
+        String raw = fallbackProps.getProperty("identity." + identityKey + ".verifyCreate.userName");
         if (raw == null) {
             throw new RuntimeException("Missing identity." + identityKey + ".expected.userName");
         }
@@ -403,9 +403,9 @@ public class IdentityDataProvider {
      * <p>
      * Section names:
      * <ul>
-     *   <li>{@code "expectedCreate"} — post-creation expected state</li>
+     *   <li>{@code "verifyCreate"} — post-creation expected state</li>
      *   <li>{@code "create"} — creation input</li>
-     *   <li>{@code "expectedModify"} — post-modify expected state (uses qualifier)</li>
+     *   <li>{@code "verifyModify"} — post-modify expected state (uses qualifier)</li>
      * </ul>
      *
      * @param identityKey the identity key
@@ -422,9 +422,9 @@ public class IdentityDataProvider {
         switch (section) {
             case "create":
                 return entry.getInput();
-            case "expectedCreate":
-                return entry.getExpected();
-            case "expectedModify":
+            case "verifyCreate":
+                return entry.getVerifyCreate();
+            case "verifyModify":
                 return entry.getModifySection(qualifier);
             default:
                 return null;
@@ -628,7 +628,7 @@ public class IdentityDataProvider {
      *
      * @param suffix       the suffix for uniqueness
      * @param identityKey  the identity key
-     * @param section      "create", "expectedCreate", or "expectedModify"
+     * @param section      "create", "verifyCreate", or "verifyModify"
      * @param isCreate     true = append suffix; false = resolve {suffix}
      */
     private static Identity buildIdentity(String suffix, String identityKey,
@@ -641,9 +641,9 @@ public class IdentityDataProvider {
      *
      * @param suffix       the suffix for uniqueness
      * @param identityKey  the identity key
-     * @param section      "create", "expectedCreate", or "expectedModify"
+     * @param section      "create", "verifyCreate", or "verifyModify"
      * @param isCreate     true = append suffix; false = resolve {suffix}
-     * @param qualifier    qualifier for expectedModify (empty for unqualified)
+     * @param qualifier    qualifier for verifyModify (empty for unqualified)
      */
     private static Identity buildIdentity(String suffix, String identityKey,
                                           String section, boolean isCreate,
@@ -769,7 +769,7 @@ public class IdentityDataProvider {
         );
 
         String p = "identity." + identityKey + "."
-                + (section.equals("expectedModify") && !qualifier.isEmpty()
+                + (section.equals("verifyModify") && !qualifier.isEmpty()
                         ? section + "." + qualifier + "."
                         : section + ".");
 
@@ -862,22 +862,22 @@ public class IdentityDataProvider {
         return result;
     }
 
-    /**
+/**
      * Returns expected SailPoint attributes for verification as a flat map.
      * When JSON-backed, flattens the {@code sailpoint} map with {@code capabilities[]} convention.
      * When properties-backed, delegates to the property prefix scan.
      *
      * @param identityKey the identity key
-     * @param section     "expectedCreate" or "expectedModify"
+     * @param section     "verifyCreate" or "verifyModify"
      * @param qualifier   empty or round qualifier
      * @return Map of attribute name → expected string value (with {suffix} unresolved)
      */
     public static Map<String, String> getExpectedSailPointFlat(String identityKey,
-                                                                String section,
-                                                                String qualifier) {
+                                                                 String section,
+                                                                 String qualifier) {
         if (!useJson) {
             String p = "identity." + identityKey + "." + section + "."
-                    + (section.equals("expectedModify") && !qualifier.isEmpty()
+                    + (section.equals("verifyModify") && !qualifier.isEmpty()
                             ? qualifier + "." : "")
                     + "sailpoint.";
             return getByPrefixFromProps(p);

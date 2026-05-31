@@ -98,7 +98,7 @@ public class IdentityTest extends BaseTest {
                             + " (status=" + response.statusCode() + ")");
                     ctx.skipped = true;
                 } else {
-                    ctx.identity = IdentityDataFactory.createIdentityFromExpected(suffix, key);
+                    ctx.identity = IdentityDataFactory.createIdentityFromVerifyCreate(suffix, key);
                     Reporter.log("<<< Resolved identity: " + key + " -> id=" + ctx.userId);
                 }
             }
@@ -136,13 +136,13 @@ public class IdentityTest extends BaseTest {
                         doExecuteTask(ctx, qualifier);
                         break;
                     case "verifyCreate":
-                        doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".expected.", qualifier);
+                        doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".verifyCreate.", qualifier);
                         break;
                     case "modify":
                         doModifyIdentity(ctx, qualifier);
                         break;
                     case "verifyModify":
-                        doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".expectedAfterModify."
+                        doVerifyIdentity(ctx, "identity." + ctx.identityKey + ".verifyModify."
                                 + (qualifier.isEmpty() ? "" : qualifier + "."), qualifier);
                         break;
                     case "deleteAccounts":
@@ -201,7 +201,7 @@ public class IdentityTest extends BaseTest {
         IdentitySection jsonSection = null;
         if (IdentityDataProvider.isJsonSource()) {
             String sectionName = (qualifier == null || qualifier.isEmpty())
-                    ? "expectedCreate" : "expectedModify";
+                    ? "verifyCreate" : "verifyModify";
             jsonSection = IdentityDataProvider.getExpectedSection(
                     ctx.identityKey, sectionName, qualifier);
         }

@@ -54,10 +54,10 @@ The framework currently covers identity lifecycle testing via SCIM APIs:
 - Configurable suffix for uniqueness across test runs
 - 100% config-driven — no code changes needed for test scenarios
 - **JSON data file support** — `identity.json` as a structured alternative to `identity.properties`, selected via `identity.data.source=json` in `config.properties` (no classpath auto-detection)
-- **Consistent phase↔section naming** — data sections `expectedCreate`/`expectedModify` align with phase names `verifyCreate`/`verifyModify`; no more confusion between `verifyCreate` → `expected` or `verifyModify` → `expectedAfterModify`
-- **Roles merged into verifyCreate/verifyModify** — `verifyRoles` phase removed; role verification with polling is now part of `doVerifyIdentity`; roles are read from the section's `.roles` field (JSON) or from `expectedCreate.roles` (properties)
-- **Accounts merged into expectedCreate/expectedModify** — `verifyAccounts` phase removed; accounts live inside each `IdentitySection` (`expectedCreate.accounts`, `expectedModify.<qual>.accounts`); account verification is now part of `doVerifyIdentity` alongside attribute and role checks
-- **Unified `expectedModify` map** — single `Map<String, IdentitySection>` field replaces the previous two-field split (`expectedModify` + `expectedModifyQualified`); unqualified modify uses key `""`, multi-round uses `"1"`, `"2"`, etc.
+- **Consistent phase↔section naming** — data sections `verifyCreate`/`verifyModify` align with phase names `verifyCreate`/`verifyModify`; no more confusion between `verifyCreate` → `expected` or `verifyModify` → `expectedAfterModify`
+- **Roles merged into verifyCreate/verifyModify** — `verifyRoles` phase removed; role verification with polling is now part of `doVerifyIdentity`; roles are read from the section's `.roles` field (JSON) or from `verifyCreate.roles` (properties)
+- **Accounts merged into verifyCreate/verifyModify** — `verifyAccounts` phase removed; accounts live inside each `IdentitySection` (`verifyCreate.accounts`, `verifyModify.<qual>.accounts`); account verification is now part of `doVerifyIdentity` alongside attribute and role checks
+- **Unified `verifyModify` map** — single `Map<String, IdentitySection>` field replaces the previous two-field split (`verifyModify` + `verifyModifyQualified`); unqualified modify uses key `""`, multi-round uses `"1"`, `"2"`, etc.
 - **SCIM PATCH partial modify** — modify only single attributes using sparse change data in `modify` section, applied via RFC 7644 PATCH (JSON source only; properties source falls back to PUT)
 
 ---

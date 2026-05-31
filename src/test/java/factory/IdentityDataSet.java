@@ -18,18 +18,18 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * }
  * </pre>
  *
- * <p>The {@code expectedModify} field is a {@code Map<String, IdentitySection>}
+ * <p>The {@code verifyModify} field is a {@code Map<String, IdentitySection>}
  * keyed by qualifier. Use key {@code ""} (empty string) for unqualified modify
  * (phase {@code modify} / {@code verifyModify}), and {@code "1"}, {@code "2"}, etc.
  * for qualified multi-round modify (phase {@code modify:1} / {@code verifyModify:1}).
  *
  * <p>The {@code modify} field holds <b>sparse</b> change data for SCIM PATCH —
  * ONLY the attributes that changed per round, keyed by qualifier ("1", "2").
- * This is distinct from {@code expectedModify}, which holds the full
+ * This is distinct from {@code verifyModify}, which holds the full
  * expected state used for post-modify verification.
  *
- * <p>Accounts live inside each {@link IdentitySection} ( {@code expectedCreate.accounts},
- * {@code expectedModify.<qual>.accounts} ), keyed by type (e.g. "ldap").
+ * <p>Accounts live inside each {@link IdentitySection} ( {@code verifyCreate.accounts},
+ * {@code verifyModify.<qual>.accounts} ), keyed by type (e.g. "ldap").
  */
 public class IdentityDataSet {
 
@@ -51,15 +51,15 @@ public class IdentityDataSet {
         private List<String> tests;
         @JsonProperty("create")
         private IdentitySection input;
-        @JsonProperty("expectedCreate")
-        private IdentitySection expected;
+        @JsonProperty("verifyCreate")
+        private IdentitySection verifyCreate;
 
         /**
          * Expected state after modify, keyed by qualifier.
          * Key {@code ""} for unqualified modify, {@code "1"}, {@code "2"} etc. for multi-round.
          */
-        @JsonProperty("expectedModify")
-        private Map<String, IdentitySection> expectedModify;
+        @JsonProperty("verifyModify")
+        private Map<String, IdentitySection> verifyModify;
 
         /**
          * Sparse modify data for SCIM PATCH, keyed by qualifier ("1", "2").
@@ -88,11 +88,11 @@ public class IdentityDataSet {
         public IdentitySection getInput() { return input; }
         public void setInput(IdentitySection input) { this.input = input; }
 
-        public IdentitySection getExpected() { return expected; }
-        public void setExpected(IdentitySection expected) { this.expected = expected; }
+        public IdentitySection getVerifyCreate() { return verifyCreate; }
+        public void setVerifyCreate(IdentitySection verifyCreate) { this.verifyCreate = verifyCreate; }
 
-        public Map<String, IdentitySection> getExpectedModify() { return expectedModify; }
-        public void setExpectedModify(Map<String, IdentitySection> expectedModify) { this.expectedModify = expectedModify; }
+        public Map<String, IdentitySection> getVerifyModify() { return verifyModify; }
+        public void setVerifyModify(Map<String, IdentitySection> verifyModify) { this.verifyModify = verifyModify; }
 
         /** Returns per-phase descriptions, or null if not configured. */
         public Map<String, String> getDescriptions() { return descriptions; }
@@ -104,13 +104,13 @@ public class IdentityDataSet {
          * @return the IdentitySection, or null if not found
          */
         public IdentitySection getModifySection(String qualifier) {
-            if (expectedModify == null) return null;
-            return expectedModify.get(qualifier);
+            if (verifyModify == null) return null;
+            return verifyModify.get(qualifier);
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // Section (shared by input, expected, expectedModify)
+    // Section (shared by input, verifyCreate, verifyModify)
     // ─────────────────────────────────────────────────────────────────────
 
     public static class IdentitySection {
@@ -123,7 +123,7 @@ public class IdentityDataSet {
         private String managerValue;
         private String managerDisplayName;
         private Boolean active;         // Boolean to allow null (optional)
-        private List<String> roles;     // Only meaningful in "expectedCreate" section
+        private List<String> roles;     // Only meaningful in "verifyCreate" section
         private Map<String, Object> sailpoint;
         private Map<String, AccountEntry> accounts;  // keyed by type (e.g. "ldap")
 

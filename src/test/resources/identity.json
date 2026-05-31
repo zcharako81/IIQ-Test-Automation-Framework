@@ -8,9 +8,9 @@
 		"verifyCreate",
 		"modify:1",
 		"verifyModify:1",
-		"deleteAccounts", 
-        "delete"
-		  ],
+		"deleteAccounts",
+		"delete"
+	],
       "descriptions": {
 		"create": "create the test user",
 		"verifyCreate": "Verify core attributes, roles, and LDAP account after creation",
@@ -42,7 +42,7 @@
           ]
         }
       },
-      "expectedCreate": {
+      "verifyCreate": {
         "userName": "john.doe.{suffix}",
         "firstname": "John",
         "lastname": "Doe",
@@ -123,7 +123,7 @@
           }
         }
       },
-      "expectedModify": {
+      "verifyModify": {
         "1": {
           "userName": "john.doe.{suffix}",
           "firstname": "John",
@@ -180,7 +180,7 @@
           }
         }
       },
-      "expectedCreate": {
+      "verifyCreate": {
         "userName": "jane.smith.{suffix}",
         "firstname": "Jane",
         "lastname": "Smith",
@@ -213,7 +213,7 @@
           }
         }
       },
-      "expectedModify": {
+      "verifyModify": {
         "": {
           "userName": "jane.smith.{suffix}",
           "lastname": "Smith",

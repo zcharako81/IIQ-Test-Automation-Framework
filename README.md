@@ -159,9 +159,9 @@ Define the identity lifecycle by listing phases in the `tests` array. Each phase
 |---|---|
 | `create` | Creates the identity via `POST /scim/v2/Users` using the attributes from the `create` section |
 | `task:<taskName>` | Launches the `My-WF-TaskLauncher` workflow for the specified IIQ task (e.g. `task:RefreshIdentitySingle`). The identity name is passed automatically as a task filter. Waits for completion and asserts `Success`. |
-| `verifyCreate` | Fetches the identity via `GET /scim/v2/Users/{id}` and asserts all core, enterprise, and SailPoint extension attributes match `expectedCreate`; also verifies `roles` and `accounts` from the same section (with polling for roles) |
+| `verifyCreate` | Fetches the identity via `GET /scim/v2/Users/{id}` and asserts all core, enterprise, and SailPoint extension attributes match `verifyCreate`; also verifies `roles` and `accounts` from the same section (with polling for roles) |
 | `modify` | Modifies the identity via **SCIM PATCH** using the attributes from the `modify` section (`modify:1`, `modify:2`, etc. for multi-round) |
-| `verifyModify` | Fetches the identity and asserts attributes match the corresponding `expectedModify` section (`verifyModify:1` → `expectedModify.1`); also verifies accounts from the same section |
+| `verifyModify` | Fetches the identity and asserts attributes match the corresponding `verifyModify` section (`verifyModify:1` → `verifyModify.1`); also verifies accounts from the same section |
 | `deleteAccounts` | Fetches all account references and deletes each via its `$ref` URL |
 | `delete` | Deletes the identity via `DELETE /scim/v2/Users/{id}` |
 
@@ -193,7 +193,7 @@ When `identity.data.source=json` is set in `config.properties`, test data is loa
           "capabilities": ["Auditor", "RoleAdministrator"]
         }
       },
-      "expectedCreate": {
+      "verifyCreate": {
         "userName": "john.doe.{suffix}",
         "firstname": "John",
         "lastname": "Doe",
@@ -232,7 +232,7 @@ When `identity.data.source=json` is set in `config.properties`, test data is loa
           }
         }
       },
-      "expectedModify": {
+      "verifyModify": {
         "1": {
           "userName": "john.doe.{suffix}",
           "firstname": "John",
@@ -268,7 +268,7 @@ When `identity.data.source=json` is set in `config.properties`, test data is loa
 
 #### SCIM schema mapping
 
-Attributes inside `create` / `expectedCreate` / `expectedModify` sections map to different SCIM JSON namespaces:
+Attributes inside `create` / `verifyCreate` / `verifyModify` sections map to different SCIM JSON namespaces:
 
 | JSON key | SCIM Schema | Java handling |
 |---|---|---|
@@ -277,7 +277,7 @@ Attributes inside `create` / `expectedCreate` / `expectedModify` sections map to
 
 Any `sailpoint.*` block is optional; omit it and the framework skips the SailPoint extension entirely.
 
-> **Note on unqualified modify**: In JSON, unqualified modify uses key `""` (empty string), while qualified rounds use `"1"`, `"2"`, etc. The `modify` section contains only the changed attributes (PATCH semantics), while `expectedModify` must contain the full expected state after modification (PUT semantics).
+> **Note on unqualified modify**: In JSON, unqualified modify uses key `""` (empty string), while qualified rounds use `"1"`, `"2"`, etc. The `modify` section contains only the changed attributes (PATCH semantics), while `verifyModify` must contain the full expected state after modification (PUT semantics).
 
 ---
 
