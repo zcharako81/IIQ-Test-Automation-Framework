@@ -1,26 +1,45 @@
+// identity.json — Identity test data for IIQ Test Automation Framework
+//
+// This file supports JSONC-style comments:
+//   //  single-line comments
+//   /* ... */  block comments (but don't nest them!)
+//
+// Sections:
+//   create        — SCIM POST payload (no {suffix} — framework appends it)
+//   verifyCreate  — expected state after creation (uses {suffix})
+//   modify        — SCIM PATCH data (ONLY changed attributes, per qualifier "1", "2")
+//   verifyModify  — expected state after modification (uses {suffix})
+//
+// Use {suffix} in expected values where the runtime suffix is injected.
+// The suffix source is config.properties: test.suffix=random (or a fixed value).
+//
+// managerValue is an IIQ-instance-specific UUID. Update all occurrences
+// when targeting a different IIQ environment (see README troubleshooting).
 {
   "identities": {
+    // First identity — full lifecycle with modify and account verification
     "user1": {
       "tests": [
         "create",
         "task:RefreshIdentitySingle",
         "task:LdapAccountAggregation",
-		"verifyCreate",
-		"modify:1",
-		"verifyModify:1",
-		"deleteAccounts",
-		"delete"
-	],
+        "verifyCreate",
+        "modify:1",
+        "verifyModify:1",
+        "deleteAccounts",
+        "delete"
+      ],
       "descriptions": {
-		"create": "create the test user",
-		"verifyCreate": "Verify core attributes, roles, and LDAP account after creation",
-        "modify:1": "Update title, department, and capabilities via SCIM PATCH",
-		"verifyModify:1": "Verify the changes from the SCIM PATCH are reflected in the identity and that the LDAP account is unchanged",
-		"task:RefreshIdentitySingle": "refresh the identity to pick up changes from SCIM",
+        "create": "Create the test user",
+        "verifyCreate": "Verify core attributes, roles, and LDAP account after creation",
+        "modify:1": "Update title and capabilities via SCIM PATCH",
+        "verifyModify:1": "Verify the SCIM PATCH changes are reflected and LDAP account is unchanged",
+        "task:RefreshIdentitySingle": "Refresh the identity to pick up changes from SCIM",
         "task:LdapAccountAggregation": "Trigger LDAP aggregation to provision accounts",
         "deleteAccounts": "Remove all provisioned accounts from LDAP prior to identity deletion",
-		"delete": "Delete the test user"
+        "delete": "Delete the test user"
       },
+      // SCIM POST payload — framework appends suffix to userName and email
       "create": {
         "userName": "john.doe",
         "firstname": "John",
@@ -28,19 +47,25 @@
         "displayName": "John Doe",
         "email": "john.doe@acme.com",
         "userType": "employee",
+        // <key>: this UUID is specific to your IIQ instance's "The Administrator"
+        // Update when switching to a different IIQ environment
         "managerValue": "ac10c6819cc4176a819cc468045e00fe",
         "managerDisplayName": "The Administrator",
         "active": true,
         "sailpoint": {
+          // Standard SailPoint attributes
           "title": "Software Engineer",
           "department": "Engineering",
           "location": "New York",
+          // Custom attributes can be added here — no Java changes needed
+          // They are treated as Map<String, Object> automatically
           "capabilities": [
             "Auditor",
             "RoleAdministrator"
           ]
         }
       },
+      // Expected state after creation — {suffix} is resolved at runtime
       "verifyCreate": {
         "userName": "john.doe.{suffix}",
         "firstname": "John",
@@ -60,11 +85,14 @@
             "RoleAdministrator"
           ]
         },
+        // Birthright roles expected after RefreshIdentitySingle
         "roles": [
           "ALL_ACTIVE_USERS",
           "LDAP_ALL_USERS"
         ],
+        // Account verification per application (keyed by type)
         "accounts": {
+          // LDAP account — expected to exist after LdapAccountAggregation
           "ldap": {
             "application": "LDAP-Test",
             "expected": {
@@ -77,6 +105,7 @@
               }
             }
           },
+          // AD account — expected NOT to exist for this identity
           "ad": {
             "application": "ActiveDirectory-Test",
             "expected": {
@@ -92,6 +121,7 @@
               }
             }
           },
+          // SCIM app account — expected NOT to exist
           "scim": {
             "application": "SCIM-Test",
             "expected": {
@@ -108,6 +138,8 @@
           }
         }
       },
+      // Sparse modify data for SCIM PATCH — ONLY changed attributes per round
+      // PATCH semantics: unspecified attributes are left unchanged
       "modify": {
         "1": {
           "displayName": "John Doe PATCHED",
@@ -120,6 +152,8 @@
           }
         }
       },
+      // Full expected state after modify — PUT semantics: all attributes
+      // must be specified (both changed and unchanged)
       "verifyModify": {
         "1": {
           "userName": "john.doe.{suffix}",
@@ -160,15 +194,17 @@
         }
       }
     },
+    // Second identity — minimal lifecycle (create → verifyCreate → delete)
     "user2": {
       "tests": [
         "create",
-		"task:RefreshIdentitySingle",
-       	"task:LdapAccountAggregation",
+        "task:RefreshIdentitySingle",
+        "task:LdapAccountAggregation",
         "verifyCreate",
         "delete"
       ],
       "modify": {
+        // Unqualified modify (key "") is used when there's no verifyModify phase
         "": {
           "displayName": "Jane Smith PATCHED",
           "sailpoint": {
@@ -210,6 +246,7 @@
         }
       },
       "verifyModify": {
+        // Unqualified verifyModify (key "") corresponds to modify with qualifier ""
         "": {
           "userName": "jane.smith.{suffix}",
           "lastname": "Smith",

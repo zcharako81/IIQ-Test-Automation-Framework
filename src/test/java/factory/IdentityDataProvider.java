@@ -1,6 +1,7 @@
 package factory;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -55,8 +56,11 @@ public class IdentityDataProvider {
                     throw new RuntimeException(
                             "identity.data.source=json but identity.json not found on classpath");
                 }
+                // Read as string and strip JSONC-style comments (// and /* */)
+                String raw = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                String clean = stripJsonComments(raw);
                 ObjectMapper mapper = new ObjectMapper();
-                dataSet = mapper.readValue(is, IdentityDataSet.class);
+                dataSet = mapper.readValue(clean, IdentityDataSet.class);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to load identity.json", e);
             }
@@ -74,6 +78,81 @@ public class IdentityDataProvider {
                 throw new RuntimeException("Failed to load identity.properties", e);
             }
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // JSON comment stripping (JSONC — // and /* */ support)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Removes JSONC-style comments from a JSON string.
+     * Supports {@code //} line comments and {@code /* } block comments.
+     * Correctly handles comments inside quoted strings — they are preserved.
+     */
+    static String stripJsonComments(String json) {
+        StringBuilder out = new StringBuilder(json.length());
+        boolean inString = false;
+        boolean inLineComment = false;
+        boolean inBlockComment = false;
+
+        for (int i = 0; i < json.length(); i++) {
+            char c = json.charAt(i);
+
+            if (inLineComment) {
+                if (c == '\n') {
+                    inLineComment = false;
+                    out.append(c);
+                }
+                continue;
+            }
+
+            if (inBlockComment) {
+                if (c == '/' && i > 0 && json.charAt(i - 1) == '*') {
+                    inBlockComment = false;
+                }
+                continue;
+            }
+
+            // Toggle string mode on unescaped double quotes
+            if (c == '"' && !isEscapedChar(json, i)) {
+                inString = !inString;
+                out.append(c);
+                continue;
+            }
+
+            if (!inString) {
+                if (c == '/' && i + 1 < json.length()) {
+                    char next = json.charAt(i + 1);
+                    if (next == '/') {
+                        inLineComment = true;
+                        i++; // skip the second slash
+                        continue;
+                    }
+                    if (next == '*') {
+                        inBlockComment = true;
+                        i++; // skip the star
+                        continue;
+                    }
+                }
+            }
+
+            out.append(c);
+        }
+
+        return out.toString();
+    }
+
+    /**
+     * Returns true if the character at {@code pos} is preceded by an odd
+     * number of consecutive backslashes (i.e., it is escaped).
+     * Handles {@code \\"} correctly (not escaped) vs {@code \"} (escaped).
+     */
+    private static boolean isEscapedChar(String s, int pos) {
+        int backslashes = 0;
+        for (int i = pos - 1; i >= 0 && s.charAt(i) == '\\'; i--) {
+            backslashes++;
+        }
+        return backslashes % 2 == 1;
     }
 
     // ─────────────────────────────────────────────────────────────────────

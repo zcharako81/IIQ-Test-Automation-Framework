@@ -93,7 +93,7 @@ Identity test data is defined in **`identity.json`**. Selection is controlled by
 | File | Purpose |
 |---|---|
 | `config.properties` | IIQ URL, auth, timeouts, logging, suffix, data source |
-| `identity.json` | Identity test data — structured JSON, supports SCIM PATCH |
+| `identity.json` | Identity test data — structured JSON with JSONC comments (// and /* */), supports SCIM PATCH |
 
 ### Global config (`config.properties`)
 
@@ -169,7 +169,7 @@ Define the identity lifecycle by listing phases in the `tests` array. Each phase
 
 ### JSON Data Source — `identity.json`
 
-When `identity.data.source=json` is set in `config.properties`, test data is loaded from `identity.json`. The JSON format is structured, supports SCIM PATCH for partial modify, and nests all attributes per identity.
+When `identity.data.source=json` is set in `config.properties`, test data is loaded from `identity.json`. The JSON format supports JSONC comments (// and /* */), SCIM PATCH for partial modify, and nests all attributes per identity.
 
 #### JSON structure overview
 
