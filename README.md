@@ -227,8 +227,7 @@ When `identity.data.source=json` is set in `config.properties`, test data is loa
         "1": {
           "displayName": "John Doe PATCHED",
           "sailpoint": {
-            "title": "Senior Software Engineer",
-            "Identity_End_Date": "2029-12-31"
+            "title": "Senior Software Engineer"
           }
         }
       },
@@ -241,11 +240,8 @@ When `identity.data.source=json` is set in `config.properties`, test data is loa
           "email": "{suffix}.john.doe@acme.com",
           "userType": "employee",
           "active": true,
-          "sailpoint": {
-            "title": "Senior Software Engineer",
-            "department": "Engineering",
-            "location": "New York",
-            "Identity_End_Date": "2029-12-31"
+      "sailpoint": {
+          "title": "Senior Software Engineer"
           },
           "accounts": {
             "ad": {

@@ -14,7 +14,7 @@
       "descriptions": {
 		"create": "create the test user",
 		"verifyCreate": "Verify core attributes, roles, and LDAP account after creation",
-        "modify:1": "Update title, department, and Identity_End_Date via SCIM PATCH",
+        "modify:1": "Update title, department, and capabilities via SCIM PATCH",
 		"verifyModify:1": "Verify the changes from the SCIM PATCH are reflected in the identity and that the LDAP account is unchanged",
 		"task:RefreshIdentitySingle": "refresh the identity to pick up changes from SCIM",
         "task:LdapAccountAggregation": "Trigger LDAP aggregation to provision accounts",
@@ -35,7 +35,6 @@
           "title": "Software Engineer",
           "department": "Engineering",
           "location": "New York",
-          "Identity_End_Date": "2027-12-31",
           "capabilities": [
             "Auditor",
             "RoleAdministrator"
@@ -56,7 +55,6 @@
           "title": "Software Engineer",
           "department": "Engineering",
           "location": "New York",
-          "Identity_End_Date": "2027-12-31",
           "capabilities": [
             "Auditor",
             "RoleAdministrator"
@@ -115,7 +113,6 @@
           "displayName": "John Doe PATCHED",
           "sailpoint": {
             "title": "Senior Software Engineer",
-            "Identity_End_Date": "2029-12-31",
             "capabilities": [
               "Auditor",
               "RuleAdministrator"
@@ -138,7 +135,6 @@
             "title": "Senior Software Engineer",
             "department": "Engineering",
             "location": "New York",
-            "Identity_End_Date": "2029-12-31",
             "capabilities": [
               "Auditor",
               "RuleAdministrator"
