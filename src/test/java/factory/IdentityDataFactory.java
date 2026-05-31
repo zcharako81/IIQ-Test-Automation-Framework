@@ -6,7 +6,7 @@ import model.Identity;
  * Factory for building {@link Identity} POJOs from test data.
  * <p>
  * This class now delegates entirely to {@link IdentityDataProvider},
- * which loads from {@code identity.json} (if present) or falls back to
+ * which loads from {@code identity.jsonc} (if present) or falls back to
  * {@code identity.properties} (backward compatible).
  * <p>
  * The public API is unchanged so existing callers work without modification.

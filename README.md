@@ -56,7 +56,7 @@ src/test/java
 │
 src/test/resources
 ├── config.properties    # Global test config (URL, auth, timeouts, data source, retry)
-├── identity.json        # Identity test data (JSON format, supports SCIM PATCH)
+├── identity.jsonc        # Identity test data (JSON format, supports SCIM PATCH)
 │
 src/test/iiq
 │
@@ -71,29 +71,29 @@ src/test/iiq
 | `io.rest-assured:rest-assured` | 6.0.0 | REST API testing |
 | `org.hamcrest:hamcrest` | 3.0 | Matchers (bundled with RestAssured) |
 | `org.apache.commons:commons-configuration2` | 2.9.0 | Configuration loading |
-| `com.fasterxml.jackson.core:jackson-databind` | 2.17.0 | JSON parsing for identity.json |
+| `com.fasterxml.jackson.core:jackson-databind` | 2.17.0 | JSON parsing for identity.jsonc |
 
 ---
 
 ## 👉 Instructions
 
 - **Prerequisite**: Workflow `My-WF-TaskLauncher` must be imported into IIQ before test execution.
-- **All tests are defined in `identity.json`**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, and account attributes — is configured in a single JSON data file. No Java code changes are needed to define or modify test cases.
+- **All tests are defined in `identity.jsonc`**: The entire test scenario — identities, lifecycle phases, expected attributes, roles, accounts, and account attributes — is configured in a single JSON data file. No Java code changes are needed to define or modify test cases.
 - **Define your test scenario**: Start by listing your test identities under the `identities` key. For each identity, provide create attributes, expected values, expected roles, and account validations. Everything is driven by conventions documented below.
 - **Phase list**: Define the identity lifecycle via the `tests` array. All tasks are launched via the unified `task:<taskName>` phase (e.g. `task:RefreshIdentitySingle`). The identity name is passed automatically as a workflow filter.
 - **Test class**: `src/test/java/tests/identity/IdentityTest.java` (suite defined in `testng.xml`).
-- **Set the manager UUID for your environment**: The `managerValue` in `identity.json` is a UUID specific to the IIQ instance. 
+- **Set the manager UUID for your environment**: The `managerValue` in `identity.jsonc` is a UUID specific to the IIQ instance. 
 
 ---
 
 ## ⚙️ Configuration
 
-Identity test data is defined in **`identity.json`**. Selection is controlled by `identity.data.source` in `config.properties`:
+Identity test data is defined in **`identity.jsonc`**. Selection is controlled by `identity.data.source` in `config.properties`:
 
 | File | Purpose |
 |---|---|
 | `config.properties` | IIQ URL, auth, timeouts, logging, suffix, data source |
-| `identity.json` | Identity test data — structured JSON with JSONC comments (// and /* */), supports SCIM PATCH |
+| `identity.jsonc` | Identity test data — structured JSON with JSONC comments (// and /* */), supports SCIM PATCH |
 
 ### Global config (`config.properties`)
 
@@ -119,7 +119,7 @@ logging.enabled=false
 test.suffix=random
 
 # --- Identity data source ---
-#   json   → load test data from identity.json (recommended)
+#   json   → load test data from identity.jsonc (recommended)
 # Default is 'properties' (backward compatible).
 identity.data.source=json
 
@@ -167,9 +167,9 @@ Define the identity lifecycle by listing phases in the `tests` array. Each phase
 
 ---
 
-### JSON Data Source — `identity.json`
+### JSON Data Source — `identity.jsonc`
 
-When `identity.data.source=json` is set in `config.properties`, test data is loaded from `identity.json`. The JSON format supports JSONC comments (// and /* */), SCIM PATCH for partial modify, and nests all attributes per identity.
+When `identity.data.source=json` is set in `config.properties`, test data is loaded from `identity.jsonc`. The JSON format supports JSONC comments (// and /* */), SCIM PATCH for partial modify, and nests all attributes per identity.
 
 #### JSON structure overview
 
@@ -383,11 +383,11 @@ This makes it easy to verify at a glance which attributes were tested, which rol
 ### Role/account verification fails
 - After identity creation, run `task:RefreshIdentitySingle` (or equivalent) to trigger role/account aggregation.
 - Roles and accounts are verified via SCIM query params — check that the expected roles match the role `display` values in IIQ.
-- For accounts, verify the `application` name in `identity.json` matches the application `displayName` in IIQ.
+- For accounts, verify the `application` name in `identity.jsonc` matches the application `displayName` in IIQ.
 
 ### managerValue assertions fail after switching IIQ environments
-- The `managerValue` in `identity.json` (and `identity.properties`) is a hardcoded UUID specific to the IIQ instance the tests were written against. When switching to a different IIQ server, update **every occurrence** of the UUID with the target instance's manager identity UUID.
-- To find the correct UUID: `GET /scim/v2/Users?filter=userName eq "The Administrator"` and copy the `id` field from the response. Replace all `managerValue` entries in `identity.json` and `identity.properties` with this value.
+- The `managerValue` in `identity.jsonc` (and `identity.properties`) is a hardcoded UUID specific to the IIQ instance the tests were written against. When switching to a different IIQ server, update **every occurrence** of the UUID with the target instance's manager identity UUID.
+- To find the correct UUID: `GET /scim/v2/Users?filter=userName eq "The Administrator"` and copy the `id` field from the response. Replace all `managerValue` entries in `identity.jsonc` and `identity.properties` with this value.
 - If the manager's `displayName` also differs, update `managerDisplayName` entries accordingly.
 
 ### HTML report is empty or shows "0 identities"

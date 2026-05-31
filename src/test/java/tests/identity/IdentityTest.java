@@ -54,7 +54,7 @@ public class IdentityTest extends BaseTest {
         boolean skipped;  // true when create/resolve failed — phases will be skipped
     }
 
-    @Test(description = "SCIM: Per-identity lifecycle driven by identity.json .tests list")
+    @Test(description = "SCIM: Per-identity lifecycle driven by identity.jsonc .tests list")
     public void testLifecycle() {
         softAssert = new SoftAssert();
         testStartTime = System.currentTimeMillis();

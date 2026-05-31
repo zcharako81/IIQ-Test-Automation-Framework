@@ -42,7 +42,7 @@ public class ConfigManager {
      * Reads {@code identity.data.source} from config.properties.
      * Supported values:
      * <ul>
-     *   <li>{@code json} — load from {@code identity.json}</li>
+     *   <li>{@code json} — load from {@code identity.jsonc}</li>
      *   <li>{@code properties} — load from {@code identity.properties}</li>
      * </ul>
      * Default is {@code properties} (backward compatible).

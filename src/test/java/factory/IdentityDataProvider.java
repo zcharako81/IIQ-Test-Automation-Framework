@@ -21,7 +21,7 @@ import utils.TestUtils;
  * The data source is chosen via the {@code identity.data.source} property
  * in {@code config.properties}:
  * <ul>
- *   <li>{@code json} — loads from {@code identity.json} using Jackson (supports SCIM PATCH)</li>
+ *   <li>{@code json} — loads from {@code identity.jsonc} using Jackson (supports SCIM PATCH)</li>
  *   <li>{@code properties} — loads from {@code identity.properties} (backward compatible, SCIM PUT)</li>
  * </ul>
  * This is transparent to callers — all methods return the same structure
@@ -51,10 +51,10 @@ public class IdentityDataProvider {
         if ("json".equalsIgnoreCase(source.trim())) {
             useJson = true;
             try (InputStream is = IdentityDataProvider.class
-                    .getClassLoader().getResourceAsStream("identity.json")) {
+                    .getClassLoader().getResourceAsStream("identity.jsonc")) {
                 if (is == null) {
                     throw new RuntimeException(
-                            "identity.data.source=json but identity.json not found on classpath");
+                            "identity.data.source=json but identity.jsonc not found on classpath");
                 }
                 // Read as string and strip JSONC-style comments (// and /* */)
                 String raw = new String(is.readAllBytes(), StandardCharsets.UTF_8);
@@ -62,7 +62,7 @@ public class IdentityDataProvider {
                 ObjectMapper mapper = new ObjectMapper();
                 dataSet = mapper.readValue(clean, IdentityDataSet.class);
             } catch (Exception e) {
-                throw new RuntimeException("Failed to load identity.json", e);
+                throw new RuntimeException("Failed to load identity.jsonc", e);
             }
         } else {
             useJson = false;
@@ -159,7 +159,7 @@ public class IdentityDataProvider {
     // Status
     // ─────────────────────────────────────────────────────────────────────
 
-    /** Returns {@code true} when the provider is backed by identity.json. */
+    /** Returns {@code true} when the provider is backed by identity.jsonc. */
     public static boolean isJsonSource() {
         return useJson;
     }
@@ -517,7 +517,7 @@ public class IdentityDataProvider {
     /**
      * Returns SCIM PATCH data for the {@code modify:<qualifier>} phase.
      * <p>
-     * Reads the sparse {@code modify} section from identity.json (only the
+     * Reads the sparse {@code modify} section from identity.jsonc (only the
      * changed attributes) and builds a {@code Map<String, Object>} suitable
      * for direct use as a SCIM PATCH body in the standard RFC 7644 format:
      * <pre>

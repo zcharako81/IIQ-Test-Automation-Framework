@@ -103,7 +103,7 @@ public class IdentityPhaseReporter implements IReporter {
         String name;
         long durationMs;
         boolean passed;
-        /** Optional human-readable description (from identity.json {@code descriptions} map). */
+        /** Optional human-readable description (from identity.jsonc {@code descriptions} map). */
         String description;
         /** Detail summary lines attached to this phase. */
         List<DetailItem> details = new ArrayList<>();

@@ -6,7 +6,7 @@ import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * POJO model for the identity.json test data file.
+ * POJO model for the identity.jsonc test data file.
  * <p>
  * Root structure:
  * <pre>
